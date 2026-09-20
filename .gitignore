@@ -57,3 +57,5 @@ go.work.sum
 node_modules
 
 .testnets
+# extracted doomgeneric sources and objects, see x/doom/wasmbuild
+x/doom/wasmbuild/build/

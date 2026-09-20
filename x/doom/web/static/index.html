@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>DOOM on chain</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #101010;
+    --panel: #171717;
+    --line: #2c2c2c;
+    --dim: #6b6b6b;
+    --text: #b9b9b9;
+    --bright: #dcdcdc;
+    --red: #a8342c;
+    --green: #5c8a3c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    padding: 16px;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+  header { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+  h1 { font-size: 15px; letter-spacing: .18em; color: var(--red); margin: 0; text-transform: uppercase; }
+  header span { color: var(--dim); }
+  header b { color: var(--bright); font-weight: 500; }
+
+  .stage { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(300px, 1fr); gap: 14px; align-items: start; }
+  @media (max-width: 900px) { .stage { grid-template-columns: 1fr; } }
+
+  canvas {
+    width: 100%;
+    aspect-ratio: 8 / 5;
+    image-rendering: pixelated;
+    background: #000;
+    border: 1px solid var(--line);
+    outline: none;
+    display: block;
+  }
+  canvas:focus { border-color: var(--red); }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+  .panel > h2 {
+    margin: 0; padding: 7px 10px; font-size: 11px; font-weight: 500;
+    letter-spacing: .12em; text-transform: uppercase; color: var(--dim);
+    border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 10px;
+  }
+  .panel > h2 label { color: var(--dim); font-weight: 400; letter-spacing: 0; text-transform: none; cursor: pointer; }
+  .feed { overflow-y: auto; height: 236px; font-size: 11.5px; }
+  .feed .row {
+    display: grid; grid-template-columns: 62px 1fr 96px; gap: 8px;
+    padding: 2px 10px; white-space: nowrap; border-bottom: 1px solid #1d1d1d;
+  }
+  .feed .row.bad { color: var(--red); }
+  .feed .num { color: var(--dim); }
+  .feed .hash { color: var(--dim); overflow: hidden; text-overflow: ellipsis; }
+  .feed .keys { color: var(--bright); overflow: hidden; text-overflow: ellipsis; }
+  .feed .keys.idle { color: #4a4a4a; }
+  .feed .ok { color: var(--green); }
+
+  .commits .row { grid-template-columns: 78px 1fr; }
+
+  .bar { display: flex; gap: 18px; flex-wrap: wrap; color: var(--dim); }
+  .bar b { color: var(--bright); font-weight: 500; }
+  #err { color: var(--red); min-height: 1.4em; }
+  #hint { color: #5a5a5a; margin: 0; }
+  kbd { background: #1e1e1e; border: 1px solid #3a3a3a; border-radius: 3px; padding: 0 4px; color: #b0b0b0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>DOOM on chain</h1>
+    <span id="who">connecting...</span>
+  </header>
+
+  <div class="stage">
+    <canvas id="screen" width="320" height="200" tabindex="0"></canvas>
+
+    <div class="panel">
+      <h2>
+        <span>transactions</span>
+        <label><input type="checkbox" id="onlyChanges" checked> changes only</label>
+      </h2>
+      <div class="feed" id="txfeed"></div>
+    </div>
+  </div>
+
+  <div class="bar">
+    <span>tic <b id="tic">-</b></span>
+    <span>sent <b id="txs">0</b></span>
+    <span>rejected <b id="bad">0</b></span>
+    <span>seq <b id="seq">-</b></span>
+    <span>fps <b id="fps">0</b></span>
+    <span>tx/s <b id="tps">0</b></span>
+  </div>
+
+  <div class="panel commits">
+    <h2><span>state commitments</span><span id="apphash">sha256 of the engine's memory, one per block</span></h2>
+    <div class="feed" id="statefeed"></div>
+  </div>
+
+  <div id="err"></div>
+
+  <p id="hint">
+    Click the screen, then play. <kbd>&uarr;</kbd><kbd>&darr;</kbd> move,
+    <kbd>&larr;</kbd><kbd>&rarr;</kbd> turn, <kbd>A</kbd><kbd>D</kbd> strafe,
+    <kbd>Ctrl</kbd> fire, <kbd>Space</kbd> use, <kbd>Shift</kbd> run,
+    <kbd>Esc</kbd> menu, <kbd>Enter</kbd> select, <kbd>1</kbd>-<kbd>7</kbd> weapons.
+  </p>
+
+</div>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
