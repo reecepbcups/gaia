@@ -17,4 +17,8 @@ var (
 	// ErrWADMismatch is returned when the node's IWAD is not the one params
 	// commit to.
 	ErrWADMismatch = errors.Register(ModuleName, 5, "wad does not match params")
+
+	// ErrFrameMismatch is returned when a pushed frame is not the one the
+	// engine drew. It usually just means the frame missed its block.
+	ErrFrameMismatch = errors.Register(ModuleName, 6, "frame does not match what the engine rendered")
 )

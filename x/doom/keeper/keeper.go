@@ -39,6 +39,8 @@ type Keeper struct {
 	wad []byte
 	// engine is booted lazily on the first block that needs it.
 	engine *engine.Engine
+	// frames buffers the screens the engine drew, which are node-local.
+	frames frameRing
 }
 
 // NewKeeper creates a doom keeper. wad may be nil, in which case the module

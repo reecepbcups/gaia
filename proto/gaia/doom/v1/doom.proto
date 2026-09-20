@@ -3,6 +3,7 @@ package gaia.doom.v1;
 
 import "gogoproto/gogo.proto";
 import "amino/amino.proto";
+import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/cosmos/gaia/x/doom/types";
 
@@ -73,4 +74,30 @@ message GameState {
 
   // Button mask most recently applied.
   uint32 buttons = 3;
+}
+
+// Frame is the screen one tic drew.
+//
+// Frames are not consensus state: the engine re-derives them from the sim and
+// the chain only commits to a hash of the sim. They are carried here so a
+// client can watch every tic instead of only the last one of each block.
+message Frame {
+  // The tic that drew this screen.
+  uint64 tic = 1;
+
+  // One palette index per pixel, row major.
+  bytes pixels = 2;
+
+  // 256 BGRA entries as of this tic.
+  bytes palette = 3;
+
+  // The block that drew it.
+  int64 block_height = 4;
+
+  // That block's state commitment. It covers the block's last tic, so the
+  // earlier tics of a block share the commitment that follows them.
+  bytes state_hash = 5;
+
+  google.protobuf.Timestamp time = 6
+      [ (gogoproto.nullable) = false, (gogoproto.stdtime) = true ];
 }

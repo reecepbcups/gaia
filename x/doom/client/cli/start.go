@@ -19,12 +19,14 @@ import (
 // Flags on `gaiad start` are namespaced so they cannot collide with the
 // server's own.
 const (
-	flagStartWeb     = "doom.web"
-	flagStartListen  = "doom.listen"
-	flagStartPlayer  = "doom.player"
-	flagStartPoll    = "doom.poll"
-	flagStartDenom   = "doom.fee-denom"
-	flagStartKeyring = "doom.keyring-backend"
+	flagStartWeb      = "doom.web"
+	flagStartListen   = "doom.listen"
+	flagStartPlayer   = "doom.player"
+	flagStartPoll     = "doom.poll"
+	flagStartDenom    = "doom.fee-denom"
+	flagStartKeyring  = "doom.keyring-backend"
+	flagStartSource   = "doom.frames"
+	flagStartFrameKey = "doom.frame-key"
 )
 
 // AddStartFlags registers the flags that let `gaiad start` serve the browser
@@ -36,6 +38,9 @@ func AddStartFlags(cmd *cobra.Command) {
 	cmd.Flags().Duration(flagStartPoll, defaultPoll, "how often to ask the node for a new frame")
 	cmd.Flags().String(flagStartDenom, defaultDenom, "denom the browser pays its fee in")
 	cmd.Flags().String(flagStartKeyring, keyring.BackendTest, "keyring backend the player key is read from")
+	cmd.Flags().String(flagStartSource, web.FrameSourceQuery,
+		"where frames come from: 'query' reads them off the node, 'block' pushes them through block data")
+	cmd.Flags().String(flagStartFrameKey, defaultFrameKey, "keyring name the node signs MsgFrame with, for --doom.frames=block")
 }
 
 // StartWeb runs the browser client in the node's process. It is a PostSetup
@@ -78,6 +83,8 @@ func StartWeb(svrCtx *server.Context, clientCtx client.Context, ctx context.Cont
 		PlayerKey:    svrCtx.Viper.GetString(flagStartPlayer),
 		PollInterval: svrCtx.Viper.GetDuration(flagStartPoll),
 		FeeDenom:     svrCtx.Viper.GetString(flagStartDenom),
+		FrameSource:  svrCtx.Viper.GetString(flagStartSource),
+		FrameKey:     svrCtx.Viper.GetString(flagStartFrameKey),
 	}
 
 	g.Go(func() error {

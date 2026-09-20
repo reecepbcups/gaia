@@ -77,3 +77,19 @@ func (q queryServer) Frame(ctx context.Context, _ *types.QueryFrameRequest) (*ty
 		Time:        header.Time,
 	}, nil
 }
+
+// Frames returns the tics this node has drawn since after_tic. Like Frame it
+// is node-local, but it hands back every tic of a block rather than only the
+// last one, which is what lets a client play the game back at DOOM's rate
+// instead of the chain's block rate.
+func (q queryServer) Frames(_ context.Context, req *types.QueryFramesRequest) (*types.QueryFramesResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "nil request")
+	}
+
+	return &types.QueryFramesResponse{
+		Width:  engine.ScreenWidth,
+		Height: engine.ScreenHeight,
+		Frames: q.k.FramesSince(req.AfterTic),
+	}, nil
+}

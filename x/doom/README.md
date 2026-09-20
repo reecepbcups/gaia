@@ -69,14 +69,87 @@ makes it obvious none of this is a local emulator.
 
 ### Speed
 
-DOOM wants 35 tics a second. Gaia commits a block about every 66ms on a laptop, so the start
-script sets `tics_per_block = 2`, which lands around 30. If your hardware makes faster blocks,
-drop it to 1 and shorten `timeout_commit`.
+DOOM wants 35 tics a second. Gaia commits a block about every 60ms on a laptop, so the start
+script sets `tics_per_block = 2`, which lands around 33. Override either end with
+`TICS_PER_BLOCK=1 TIMEOUT_COMMIT=0ms make doom-start` if your hardware makes faster blocks.
+
+Don't expect much from `timeout_commit`. Measured on an M-series laptop it makes no difference
+at all: 0ms and 28ms both come out at 16 blocks a second, so the ~60ms is propose, vote, execute
+and commit rather than the post-commit wait. Drop `tics_per_block` to 1 without getting the block
+rate up and the game just runs at half speed, because the block is the game clock.
+
+A block draws `tics_per_block` screens and the engine overwrites its framebuffer on each one, so
+the EndBlocker copies every tic out to a small node-local ring and the web server plays them back
+at 35Hz. Without that you'd see one screen per block, one tic in every `tics_per_block`.
+Pacing costs up to a frame of latency, which is the price of a block rate under 35 looking like
+motion.
 
 The doom EndBlocker itself is not the bottleneck. A tic costs about 1.5ms and hashing the engine's
 7MB of memory a few more; an empty gaia block costs about the same with or without it. The chain
 does need the transaction indexer on (`indexer = "kv"`) for the clickable hashes, which is worth
 about 9ms a block.
+
+## Verifying it's real
+
+The pixels never go through a block. What's in the blocks is the input log and a sha256 of the
+engine's memory; the screen is re-derived from those, which is why the frame query is node-local.
+So the thing worth checking isn't "did the picture arrive over consensus", it's "is the picture a
+function of what consensus agreed on". `scripts/replay` answers that from outside the node.
+
+```bash
+# with the chain stopped
+gaiad export --home ~/.gaia-doom | tail -n +2 > export.json
+go run ./x/doom/scripts/replay -genesis export.json -wad ~/.gaia-doom/doom.wad -png frame.png
+```
+
+It checks the WAD against `params.wad_hash`, replays the log in a fresh wasm sandbox and prints
+the commitment it lands on. That hash has to equal the `state_hash` from
+`gaia.doom.v1.Query/State`, and `frame.png` has to be the screen you were looking at.
+
+Two gotchas when comparing by hand. `-tic N` stops the replay early, and the streamed frames are
+labelled with the tic that drew them while the commitment they carry covers the block's *last*
+tic, so a frame tagged 5341 on a `tics_per_block = 2` chain is hashed at 5342. And the raw pixels
+land next to the png as `frame.png.raw`, which is what you diff against the bytes coming off
+`/api/frames`.
+
+## Frames through the blocks
+
+The default is the sane arrangement: the chain carries input and a commitment, the client derives
+the picture. `--frames block` does the other thing, and pushes the screen itself through block
+data so the browser can be fed from blocks alone.
+
+```bash
+gaiad doom web --home ~/.gaia-doom --keyring-backend test --frames block
+```
+
+The node signs a `MsgFrame` per block with its own `frames` key. The handler compares it against
+what the engine drew and rejects anything else, so a node can't smuggle in a picture the sim
+never produced. `web/blocks.go` then walks the chain a block at a time, decodes the transactions
+and renders whatever `MsgFrame` it finds. No query, no engine, nothing derived: if the bytes
+weren't in a block, nothing is drawn.
+
+Measured on a laptop, against the ~33fps the default manages:
+
+- **15fps.** One frame per block is all you get. Only the last tic of a block can be verified,
+  because by the time the transaction runs a block later the engine has drawn over everything
+  before it, so the intermediate tics can't go on chain at all.
+- **~51KB of block data per frame**, about 600k gas. That's 800KB/s, near enough 3GB an hour.
+- Run length encoding gets between 1.1x and 1.4x. DOOM's 3D view is dithered texture noise with
+  almost no flat runs; the status bar is most of what compresses. Something delta based would do
+  far better, but the handler only holds the current frame, so there's nothing to diff against
+  that every node is guaranteed to agree on.
+- A frame that misses its block is rejected rather than shown late, so you lose one every few
+  seconds and the game visibly hitches.
+
+You can check the rejection is real. Sign a `MsgFrame` for the right tic with the wrong pixels
+and the chain says so:
+
+```text
+code 6: pixels: frame does not match what the engine rendered
+```
+
+So it works, and it's worse in every way that matters. Which is the useful thing to have
+measured rather than argued about.
 
 ## Rebuilding the wasm
 

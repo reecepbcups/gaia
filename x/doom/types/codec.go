@@ -10,6 +10,7 @@ import (
 // RegisterLegacyAminoCodec registers the doom messages for amino signing.
 func RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
 	cdc.RegisterConcrete(&MsgInput{}, "gaia/doom/MsgInput", nil)
+	cdc.RegisterConcrete(&MsgFrame{}, "gaia/doom/MsgFrame", nil)
 	cdc.RegisterConcrete(&MsgUpdateParams{}, "gaia/doom/MsgUpdateParams", nil)
 }
 
@@ -17,6 +18,7 @@ func RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
 func RegisterInterfaces(registry cdctypes.InterfaceRegistry) {
 	registry.RegisterImplementations((*sdk.Msg)(nil),
 		&MsgInput{},
+		&MsgFrame{},
 		&MsgUpdateParams{},
 	)
 

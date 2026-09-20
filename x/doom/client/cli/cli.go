@@ -16,18 +16,24 @@ import (
 )
 
 const (
-	flagListen = "listen"
-	flagPlayer = "player"
-	flagPoll   = "poll"
-	flagDenom  = "fee-denom"
+	flagListen   = "listen"
+	flagPlayer   = "player"
+	flagPoll     = "poll"
+	flagDenom    = "fee-denom"
+	flagSource   = "frames"
+	flagFrameKey = "frame-key"
 )
 
 // Defaults shared by `gaiad doom web` and the same server run from `gaiad start`.
 const (
 	defaultListen = "127.0.0.1:8666"
 	defaultPlayer = "player"
-	defaultPoll   = time.Second / 35
-	defaultDenom  = "stake"
+	// Polling is cheap and only ever returns tics the client has not seen yet,
+	// so it runs well ahead of the block rate to keep frames fresh.
+	defaultPoll  = 10 * time.Millisecond
+	defaultDenom = "stake"
+	// defaultFrameKey is only used when frames are pushed through block data.
+	defaultFrameKey = "frames"
 )
 
 // NewRootCmd returns the `gaiad doom` command tree.
@@ -43,6 +49,7 @@ func NewRootCmd() *cobra.Command {
 	cmd.AddCommand(
 		newWebCmd(),
 		newStateCmd(),
+		newFrameCmd(),
 		newInputCmd(),
 	)
 
@@ -80,6 +87,14 @@ key so it signs and broadcasts its own input. Every keypress is a transaction.`,
 			if err != nil {
 				return err
 			}
+			source, err := cmd.Flags().GetString(flagSource)
+			if err != nil {
+				return err
+			}
+			frameKey, err := cmd.Flags().GetString(flagFrameKey)
+			if err != nil {
+				return err
+			}
 
 			return web.Serve(cmd.Context(), web.Config{
 				ClientCtx:    clientCtx,
@@ -87,6 +102,8 @@ key so it signs and broadcasts its own input. Every keypress is a transaction.`,
 				PlayerKey:    player,
 				PollInterval: poll,
 				FeeDenom:     denom,
+				FrameSource:  source,
+				FrameKey:     frameKey,
 			})
 		},
 	}
@@ -95,6 +112,9 @@ key so it signs and broadcasts its own input. Every keypress is a transaction.`,
 	cmd.Flags().String(flagPlayer, defaultPlayer, "keyring name of the key the browser plays with")
 	cmd.Flags().Duration(flagPoll, defaultPoll, "how often to ask the node for a new frame")
 	cmd.Flags().String(flagDenom, defaultDenom, "denom the browser pays its fee in")
+	cmd.Flags().String(flagSource, web.FrameSourceQuery,
+		"where frames come from: 'query' reads them off the node, 'block' pushes them through block data")
+	cmd.Flags().String(flagFrameKey, defaultFrameKey, "keyring name the node signs MsgFrame with, for --frames=block")
 	flags.AddQueryFlagsToCmd(cmd)
 	// The browser plays with a key out of the node's keyring, so this command
 	// needs more than the query flags.

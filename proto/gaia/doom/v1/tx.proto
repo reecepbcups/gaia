@@ -16,6 +16,15 @@ service Msg {
   // Input sets the buttons held down for the tics run by the block it lands in.
   rpc Input(MsgInput) returns (MsgInputResponse);
 
+  // Frame pushes a rendered screen into block data.
+  //
+  // It buys nothing a client could not derive for itself, which is the point:
+  // it is what watching the game entirely out of the blocks costs. The handler
+  // only accepts a frame that matches what the engine already drew, so the
+  // bytes are redundant by construction and a node cannot smuggle a picture
+  // the sim never produced.
+  rpc Frame(MsgFrame) returns (MsgFrameResponse);
+
   // UpdateParams updates the x/doom module parameters.
   rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
 }
@@ -40,6 +49,37 @@ message MsgInput {
 message MsgInputResponse {
   // Tic this input is expected to land on.
   uint64 tic = 1;
+}
+
+// MsgFrame carries one screen.
+//
+// Only the last tic of a block can be checked, because that is the only frame
+// the engine still holds when the next block's transactions run. Intermediate
+// tics are gone by then, so this pushes one frame per block and a client
+// reading blocks sees the game at the block rate rather than at 35Hz.
+message MsgFrame {
+  option (cosmos.msg.v1.signer) = "submitter";
+  option (amino.name) = "gaia/doom/MsgFrame";
+  option (gogoproto.equal) = false;
+
+  string submitter = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // The tic this screen was drawn by. It has to be the tic the chain is
+  // sitting on, so a frame that misses its block is rejected rather than
+  // shown late.
+  uint64 tic = 2;
+
+  // Palette indices, run length encoded. A DOOM screen is mostly flat runs, so
+  // this is worth roughly 3x and the block data is the whole cost here.
+  bytes pixels = 3;
+
+  // 256 BGRA entries, uncompressed.
+  bytes palette = 4;
+}
+
+message MsgFrameResponse {
+  // How many bytes of block data the frame cost, so a client can see the bill.
+  uint64 block_bytes = 1;
 }
 
 message MsgUpdateParams {

@@ -135,6 +135,131 @@ func (m *MsgInputResponse) GetTic() uint64 {
 	return 0
 }
 
+// MsgFrame carries one screen.
+//
+// Only the last tic of a block can be checked, because that is the only frame
+// the engine still holds when the next block's transactions run. Intermediate
+// tics are gone by then, so this pushes one frame per block and a client
+// reading blocks sees the game at the block rate rather than at 35Hz.
+type MsgFrame struct {
+	Submitter string `protobuf:"bytes,1,opt,name=submitter,proto3" json:"submitter,omitempty"`
+	// The tic this screen was drawn by. It has to be the tic the chain is
+	// sitting on, so a frame that misses its block is rejected rather than
+	// shown late.
+	Tic uint64 `protobuf:"varint,2,opt,name=tic,proto3" json:"tic,omitempty"`
+	// Palette indices, run length encoded. A DOOM screen is mostly flat runs, so
+	// this is worth roughly 3x and the block data is the whole cost here.
+	Pixels []byte `protobuf:"bytes,3,opt,name=pixels,proto3" json:"pixels,omitempty"`
+	// 256 BGRA entries, uncompressed.
+	Palette []byte `protobuf:"bytes,4,opt,name=palette,proto3" json:"palette,omitempty"`
+}
+
+func (m *MsgFrame) Reset()         { *m = MsgFrame{} }
+func (m *MsgFrame) String() string { return proto.CompactTextString(m) }
+func (*MsgFrame) ProtoMessage()    {}
+func (*MsgFrame) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0846e799e6651ee5, []int{2}
+}
+func (m *MsgFrame) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgFrame) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgFrame.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgFrame) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgFrame.Merge(m, src)
+}
+func (m *MsgFrame) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgFrame) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgFrame.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgFrame proto.InternalMessageInfo
+
+func (m *MsgFrame) GetSubmitter() string {
+	if m != nil {
+		return m.Submitter
+	}
+	return ""
+}
+
+func (m *MsgFrame) GetTic() uint64 {
+	if m != nil {
+		return m.Tic
+	}
+	return 0
+}
+
+func (m *MsgFrame) GetPixels() []byte {
+	if m != nil {
+		return m.Pixels
+	}
+	return nil
+}
+
+func (m *MsgFrame) GetPalette() []byte {
+	if m != nil {
+		return m.Palette
+	}
+	return nil
+}
+
+type MsgFrameResponse struct {
+	// How many bytes of block data the frame cost, so a client can see the bill.
+	BlockBytes uint64 `protobuf:"varint,1,opt,name=block_bytes,json=blockBytes,proto3" json:"block_bytes,omitempty"`
+}
+
+func (m *MsgFrameResponse) Reset()         { *m = MsgFrameResponse{} }
+func (m *MsgFrameResponse) String() string { return proto.CompactTextString(m) }
+func (*MsgFrameResponse) ProtoMessage()    {}
+func (*MsgFrameResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0846e799e6651ee5, []int{3}
+}
+func (m *MsgFrameResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgFrameResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgFrameResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgFrameResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgFrameResponse.Merge(m, src)
+}
+func (m *MsgFrameResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgFrameResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgFrameResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgFrameResponse proto.InternalMessageInfo
+
+func (m *MsgFrameResponse) GetBlockBytes() uint64 {
+	if m != nil {
+		return m.BlockBytes
+	}
+	return 0
+}
+
 type MsgUpdateParams struct {
 	// authority is the address that controls the module (defaults to x/gov unless
 	// overwritten).
@@ -149,7 +274,7 @@ func (m *MsgUpdateParams) Reset()         { *m = MsgUpdateParams{} }
 func (m *MsgUpdateParams) String() string { return proto.CompactTextString(m) }
 func (*MsgUpdateParams) ProtoMessage()    {}
 func (*MsgUpdateParams) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0846e799e6651ee5, []int{2}
+	return fileDescriptor_0846e799e6651ee5, []int{4}
 }
 func (m *MsgUpdateParams) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -199,7 +324,7 @@ func (m *MsgUpdateParamsResponse) Reset()         { *m = MsgUpdateParamsResponse
 func (m *MsgUpdateParamsResponse) String() string { return proto.CompactTextString(m) }
 func (*MsgUpdateParamsResponse) ProtoMessage()    {}
 func (*MsgUpdateParamsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0846e799e6651ee5, []int{3}
+	return fileDescriptor_0846e799e6651ee5, []int{5}
 }
 func (m *MsgUpdateParamsResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -231,6 +356,8 @@ var xxx_messageInfo_MsgUpdateParamsResponse proto.InternalMessageInfo
 func init() {
 	proto.RegisterType((*MsgInput)(nil), "gaia.doom.v1.MsgInput")
 	proto.RegisterType((*MsgInputResponse)(nil), "gaia.doom.v1.MsgInputResponse")
+	proto.RegisterType((*MsgFrame)(nil), "gaia.doom.v1.MsgFrame")
+	proto.RegisterType((*MsgFrameResponse)(nil), "gaia.doom.v1.MsgFrameResponse")
 	proto.RegisterType((*MsgUpdateParams)(nil), "gaia.doom.v1.MsgUpdateParams")
 	proto.RegisterType((*MsgUpdateParamsResponse)(nil), "gaia.doom.v1.MsgUpdateParamsResponse")
 }
@@ -238,35 +365,41 @@ func init() {
 func init() { proto.RegisterFile("gaia/doom/v1/tx.proto", fileDescriptor_0846e799e6651ee5) }
 
 var fileDescriptor_0846e799e6651ee5 = []byte{
-	// 438 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x12, 0x4d, 0x4f, 0xcc, 0x4c,
-	0xd4, 0x4f, 0xc9, 0xcf, 0xcf, 0xd5, 0x2f, 0x33, 0xd4, 0x2f, 0xa9, 0xd0, 0x2b, 0x28, 0xca, 0x2f,
-	0xc9, 0x17, 0xe2, 0x01, 0x09, 0xeb, 0x81, 0x84, 0xf5, 0xca, 0x0c, 0xa5, 0x44, 0xd2, 0xf3, 0xd3,
-	0xf3, 0xc1, 0x12, 0xfa, 0x20, 0x16, 0x44, 0x8d, 0x94, 0x60, 0x62, 0x6e, 0x66, 0x5e, 0xbe, 0x3e,
-	0x98, 0x84, 0x0a, 0x49, 0x26, 0xe7, 0x17, 0xe7, 0xe6, 0x17, 0xc7, 0x43, 0xd4, 0x42, 0x38, 0x50,
-	0x29, 0x71, 0x08, 0x4f, 0x3f, 0xb7, 0x38, 0x1d, 0x64, 0x53, 0x6e, 0x71, 0x3a, 0x4c, 0x02, 0xc5,
-	0x05, 0x60, 0x2b, 0xc1, 0x12, 0x4a, 0x75, 0x5c, 0x1c, 0xbe, 0xc5, 0xe9, 0x9e, 0x79, 0x05, 0xa5,
-	0x25, 0x42, 0x06, 0x5c, 0x6c, 0x05, 0x39, 0x89, 0x95, 0xa9, 0x45, 0x12, 0x8c, 0x0a, 0x8c, 0x1a,
-	0x9c, 0x4e, 0x12, 0x97, 0xb6, 0xe8, 0x8a, 0x40, 0xcd, 0x77, 0x4c, 0x49, 0x29, 0x4a, 0x2d, 0x2e,
-	0x0e, 0x2e, 0x29, 0xca, 0xcc, 0x4b, 0x0f, 0x82, 0xaa, 0x13, 0x92, 0xe0, 0x62, 0x4f, 0x2a, 0x2d,
-	0x29, 0xc9, 0xcf, 0x2b, 0x96, 0x60, 0x52, 0x60, 0xd4, 0xe0, 0x0d, 0x82, 0x71, 0xad, 0xd4, 0x5e,
-	0x2c, 0x90, 0x67, 0x68, 0x7a, 0xbe, 0x41, 0x0b, 0xaa, 0xb4, 0xeb, 0xf9, 0x06, 0x2d, 0x21, 0x84,
-	0x23, 0x60, 0x76, 0x2a, 0xa9, 0x70, 0x09, 0xc0, 0xd8, 0x41, 0xa9, 0xc5, 0x05, 0xf9, 0x79, 0xc5,
-	0xa9, 0x42, 0x02, 0x5c, 0xcc, 0x25, 0x99, 0xc9, 0x60, 0x47, 0xb0, 0x04, 0x81, 0x98, 0x4a, 0x1b,
-	0x18, 0xb9, 0xf8, 0x7d, 0x8b, 0xd3, 0x43, 0x0b, 0x52, 0x12, 0x4b, 0x52, 0x03, 0x12, 0x8b, 0x12,
-	0x73, 0x8b, 0x85, 0xcc, 0xb8, 0x38, 0x13, 0x4b, 0x4b, 0x32, 0xf2, 0x8b, 0x32, 0x4b, 0x2a, 0x09,
-	0x3a, 0x18, 0xa1, 0x54, 0xc8, 0x9c, 0x8b, 0xad, 0x00, 0x6c, 0x02, 0xd8, 0xc9, 0xdc, 0x46, 0x22,
-	0x7a, 0xc8, 0xd1, 0xa0, 0x07, 0x31, 0xdd, 0x89, 0xf3, 0xc4, 0x3d, 0x79, 0x86, 0x15, 0xcf, 0x37,
-	0x68, 0x31, 0x06, 0x41, 0x95, 0x5b, 0xe9, 0x80, 0xbc, 0x83, 0x30, 0x08, 0xe4, 0x23, 0x49, 0x14,
-	0x1f, 0x21, 0x3b, 0x4f, 0x49, 0x92, 0x4b, 0x1c, 0x4d, 0x08, 0xe6, 0x3f, 0xa3, 0xc5, 0x8c, 0x5c,
-	0xcc, 0xbe, 0xc5, 0xe9, 0x42, 0xf6, 0x5c, 0xac, 0x90, 0x80, 0x17, 0x43, 0x75, 0x02, 0x2c, 0x40,
-	0xa4, 0xe4, 0xb0, 0x8b, 0xc3, 0x03, 0x2a, 0x84, 0x8b, 0x07, 0x25, 0x48, 0x64, 0x31, 0xd4, 0x23,
-	0x4b, 0x4b, 0xa9, 0xe2, 0x95, 0x86, 0x99, 0x2a, 0xc5, 0xda, 0x00, 0xf2, 0xb6, 0x93, 0xed, 0x89,
-	0x47, 0x72, 0x8c, 0x17, 0x1e, 0xc9, 0x31, 0x3e, 0x78, 0x24, 0xc7, 0x38, 0xe1, 0xb1, 0x1c, 0xc3,
-	0x85, 0xc7, 0x72, 0x0c, 0x37, 0x1e, 0xcb, 0x31, 0x44, 0x29, 0xa7, 0x67, 0x96, 0x64, 0x94, 0x26,
-	0xe9, 0x25, 0xe7, 0xe7, 0x42, 0x93, 0x9f, 0x3e, 0x38, 0x1c, 0x2a, 0x20, 0x21, 0x51, 0x52, 0x59,
-	0x90, 0x5a, 0x9c, 0xc4, 0x06, 0x4e, 0x5f, 0xc6, 0x80, 0x00, 0x00, 0x00, 0xff, 0xff, 0x28, 0xb5,
-	0x1b, 0xfc, 0xfc, 0x02, 0x00, 0x00,
+	// 543 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x53, 0xcf, 0x8b, 0xd3, 0x40,
+	0x18, 0xed, 0x6c, 0xb7, 0xd5, 0xce, 0x56, 0x5c, 0x43, 0xdd, 0x4d, 0x0b, 0xa6, 0x25, 0xfe, 0xa0,
+	0x16, 0x4d, 0xdc, 0x5d, 0x50, 0x28, 0xc8, 0x62, 0x0f, 0x82, 0x87, 0x82, 0x44, 0xbd, 0x78, 0x59,
+	0x26, 0xed, 0x30, 0x1b, 0x6c, 0x32, 0x21, 0x33, 0x59, 0xda, 0x8b, 0x88, 0x47, 0x4f, 0xfe, 0x09,
+	0x1e, 0x3d, 0x56, 0xf0, 0x8f, 0xd8, 0xe3, 0xe2, 0xc9, 0x93, 0x48, 0x2b, 0xd4, 0x3f, 0x43, 0x66,
+	0x92, 0x49, 0x1b, 0xbb, 0xe8, 0x5e, 0xc2, 0xf7, 0xbd, 0xef, 0xf1, 0xe6, 0xbd, 0x2f, 0x33, 0xf0,
+	0x3a, 0x41, 0x1e, 0xb2, 0x87, 0x94, 0xfa, 0xf6, 0xc9, 0x9e, 0xcd, 0xc7, 0x56, 0x18, 0x51, 0x4e,
+	0xb5, 0xaa, 0x80, 0x2d, 0x01, 0x5b, 0x27, 0x7b, 0x8d, 0x1a, 0xa1, 0x84, 0xca, 0x81, 0x2d, 0xaa,
+	0x84, 0xd3, 0xb8, 0x86, 0x7c, 0x2f, 0xa0, 0xb6, 0xfc, 0xa6, 0x50, 0x7d, 0x40, 0x99, 0x4f, 0xd9,
+	0x51, 0xc2, 0x4d, 0x9a, 0x74, 0xb4, 0x9b, 0x74, 0xb6, 0xcf, 0x88, 0x38, 0xc9, 0x67, 0x44, 0x0d,
+	0x72, 0x0e, 0xe4, 0x91, 0x72, 0x60, 0xbe, 0x85, 0x97, 0xfb, 0x8c, 0x3c, 0x0b, 0xc2, 0x98, 0x6b,
+	0x0f, 0x60, 0x39, 0x1c, 0xa1, 0x09, 0x8e, 0x74, 0xd0, 0x02, 0xed, 0x4a, 0x4f, 0xff, 0xf6, 0xf5,
+	0x7e, 0x2d, 0xd5, 0x7f, 0x32, 0x1c, 0x46, 0x98, 0xb1, 0x17, 0x3c, 0xf2, 0x02, 0xe2, 0xa4, 0x3c,
+	0x4d, 0x87, 0x97, 0xdc, 0x98, 0x73, 0x1a, 0x30, 0x7d, 0xa3, 0x05, 0xda, 0x57, 0x1c, 0xd5, 0x76,
+	0xef, 0xfc, 0xfe, 0xd4, 0x2c, 0xbc, 0x5f, 0x4c, 0x3b, 0x29, 0xf5, 0xc3, 0x62, 0xda, 0xd1, 0x96,
+	0x26, 0xd4, 0x99, 0xe6, 0x2d, 0xb8, 0xad, 0x6a, 0x07, 0xb3, 0x90, 0x06, 0x0c, 0x6b, 0xdb, 0xb0,
+	0xc8, 0xbd, 0x81, 0x34, 0xb1, 0xe9, 0x88, 0xd2, 0xfc, 0x02, 0xa4, 0xcd, 0xa7, 0x11, 0xf2, 0xb1,
+	0xf6, 0x10, 0x56, 0x58, 0xec, 0xfa, 0x1e, 0xe7, 0x17, 0x70, 0xba, 0xa4, 0x2a, 0xd9, 0x8d, 0x4c,
+	0x56, 0xdb, 0x81, 0xe5, 0xd0, 0x1b, 0xe3, 0x11, 0xd3, 0x8b, 0x2d, 0xd0, 0xae, 0x3a, 0x69, 0x27,
+	0x62, 0x85, 0x68, 0x84, 0x39, 0xc7, 0xfa, 0xa6, 0x1c, 0xa8, 0xb6, 0x7b, 0x57, 0xc5, 0x5a, 0xea,
+	0xae, 0x27, 0x93, 0x36, 0xcd, 0x03, 0x99, 0x4c, 0xd6, 0x59, 0xb2, 0x26, 0xdc, 0x72, 0x47, 0x74,
+	0xf0, 0xe6, 0xc8, 0x9d, 0x70, 0xcc, 0xd2, 0x84, 0x50, 0x42, 0x3d, 0x81, 0x98, 0x53, 0x00, 0xaf,
+	0xf6, 0x19, 0x79, 0x15, 0x0e, 0x11, 0xc7, 0xcf, 0x51, 0x84, 0x7c, 0x26, 0xf2, 0xa2, 0x98, 0x1f,
+	0xd3, 0xc8, 0xe3, 0x93, 0xff, 0xe7, 0xcd, 0xa8, 0xda, 0x23, 0x58, 0x0e, 0xa5, 0x82, 0x8c, 0xbc,
+	0xb5, 0x5f, 0xb3, 0x56, 0xef, 0x9b, 0x95, 0xa8, 0xf7, 0x2a, 0xa7, 0x3f, 0x9a, 0x85, 0xcf, 0x8b,
+	0x69, 0x07, 0x38, 0x29, 0xbd, 0x7b, 0x4f, 0x06, 0xcc, 0x84, 0x44, 0xc0, 0x7a, 0x2e, 0xe0, 0xaa,
+	0x3d, 0xb3, 0x0e, 0x77, 0xff, 0x82, 0x54, 0xdc, 0xfd, 0x5f, 0x00, 0x16, 0xfb, 0x8c, 0x68, 0x87,
+	0xb0, 0x94, 0xdc, 0xb0, 0x9d, 0xbc, 0x05, 0xf5, 0xe7, 0x1b, 0xc6, 0xf9, 0x78, 0xb6, 0xb7, 0x43,
+	0x58, 0x4a, 0xfe, 0xfd, 0xba, 0x80, 0xc4, 0xcf, 0x11, 0xc8, 0x2f, 0xfe, 0x25, 0xac, 0xe6, 0x76,
+	0x7a, 0x63, 0x8d, 0xbf, 0x3a, 0x6e, 0xdc, 0xfe, 0xe7, 0x58, 0xa9, 0x36, 0x4a, 0xef, 0xc4, 0xde,
+	0x7a, 0x8f, 0x4f, 0x67, 0x06, 0x38, 0x9b, 0x19, 0xe0, 0xe7, 0xcc, 0x00, 0x1f, 0xe7, 0x46, 0xe1,
+	0x6c, 0x6e, 0x14, 0xbe, 0xcf, 0x8d, 0xc2, 0xeb, 0x9b, 0xc4, 0xe3, 0xc7, 0xb1, 0x6b, 0x0d, 0xa8,
+	0x9f, 0x3e, 0x54, 0x5b, 0x2e, 0x72, 0x9c, 0xac, 0x92, 0x4f, 0x42, 0xcc, 0xdc, 0xb2, 0x7c, 0x89,
+	0x07, 0x7f, 0x02, 0x00, 0x00, 0xff, 0xff, 0xac, 0xa3, 0xc5, 0x53, 0x26, 0x04, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -283,6 +416,14 @@ const _ = grpc.SupportPackageIsVersion4
 type MsgClient interface {
 	// Input sets the buttons held down for the tics run by the block it lands in.
 	Input(ctx context.Context, in *MsgInput, opts ...grpc.CallOption) (*MsgInputResponse, error)
+	// Frame pushes a rendered screen into block data.
+	//
+	// It buys nothing a client could not derive for itself, which is the point:
+	// it is what watching the game entirely out of the blocks costs. The handler
+	// only accepts a frame that matches what the engine already drew, so the
+	// bytes are redundant by construction and a node cannot smuggle a picture
+	// the sim never produced.
+	Frame(ctx context.Context, in *MsgFrame, opts ...grpc.CallOption) (*MsgFrameResponse, error)
 	// UpdateParams updates the x/doom module parameters.
 	UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error)
 }
@@ -304,6 +445,15 @@ func (c *msgClient) Input(ctx context.Context, in *MsgInput, opts ...grpc.CallOp
 	return out, nil
 }
 
+func (c *msgClient) Frame(ctx context.Context, in *MsgFrame, opts ...grpc.CallOption) (*MsgFrameResponse, error) {
+	out := new(MsgFrameResponse)
+	err := c.cc.Invoke(ctx, "/gaia.doom.v1.Msg/Frame", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *msgClient) UpdateParams(ctx context.Context, in *MsgUpdateParams, opts ...grpc.CallOption) (*MsgUpdateParamsResponse, error) {
 	out := new(MsgUpdateParamsResponse)
 	err := c.cc.Invoke(ctx, "/gaia.doom.v1.Msg/UpdateParams", in, out, opts...)
@@ -317,6 +467,14 @@ func (c *msgClient) UpdateParams(ctx context.Context, in *MsgUpdateParams, opts 
 type MsgServer interface {
 	// Input sets the buttons held down for the tics run by the block it lands in.
 	Input(context.Context, *MsgInput) (*MsgInputResponse, error)
+	// Frame pushes a rendered screen into block data.
+	//
+	// It buys nothing a client could not derive for itself, which is the point:
+	// it is what watching the game entirely out of the blocks costs. The handler
+	// only accepts a frame that matches what the engine already drew, so the
+	// bytes are redundant by construction and a node cannot smuggle a picture
+	// the sim never produced.
+	Frame(context.Context, *MsgFrame) (*MsgFrameResponse, error)
 	// UpdateParams updates the x/doom module parameters.
 	UpdateParams(context.Context, *MsgUpdateParams) (*MsgUpdateParamsResponse, error)
 }
@@ -327,6 +485,9 @@ type UnimplementedMsgServer struct {
 
 func (*UnimplementedMsgServer) Input(ctx context.Context, req *MsgInput) (*MsgInputResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Input not implemented")
+}
+func (*UnimplementedMsgServer) Frame(ctx context.Context, req *MsgFrame) (*MsgFrameResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Frame not implemented")
 }
 func (*UnimplementedMsgServer) UpdateParams(ctx context.Context, req *MsgUpdateParams) (*MsgUpdateParamsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateParams not implemented")
@@ -350,6 +511,24 @@ func _Msg_Input_Handler(srv interface{}, ctx context.Context, dec func(interface
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MsgServer).Input(ctx, req.(*MsgInput))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Msg_Frame_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgFrame)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).Frame(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/gaia.doom.v1.Msg/Frame",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).Frame(ctx, req.(*MsgFrame))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -380,6 +559,10 @@ var _Msg_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Input",
 			Handler:    _Msg_Input_Handler,
+		},
+		{
+			MethodName: "Frame",
+			Handler:    _Msg_Frame_Handler,
 		},
 		{
 			MethodName: "UpdateParams",
@@ -447,6 +630,83 @@ func (m *MsgInputResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = l
 	if m.Tic != 0 {
 		i = encodeVarintTx(dAtA, i, uint64(m.Tic))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgFrame) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgFrame) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgFrame) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.Palette) > 0 {
+		i -= len(m.Palette)
+		copy(dAtA[i:], m.Palette)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Palette)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if len(m.Pixels) > 0 {
+		i -= len(m.Pixels)
+		copy(dAtA[i:], m.Pixels)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Pixels)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.Tic != 0 {
+		i = encodeVarintTx(dAtA, i, uint64(m.Tic))
+		i--
+		dAtA[i] = 0x10
+	}
+	if len(m.Submitter) > 0 {
+		i -= len(m.Submitter)
+		copy(dAtA[i:], m.Submitter)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Submitter)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgFrameResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgFrameResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgFrameResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.BlockBytes != 0 {
+		i = encodeVarintTx(dAtA, i, uint64(m.BlockBytes))
 		i--
 		dAtA[i] = 0x8
 	}
@@ -551,6 +811,42 @@ func (m *MsgInputResponse) Size() (n int) {
 	_ = l
 	if m.Tic != 0 {
 		n += 1 + sovTx(uint64(m.Tic))
+	}
+	return n
+}
+
+func (m *MsgFrame) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Submitter)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	if m.Tic != 0 {
+		n += 1 + sovTx(uint64(m.Tic))
+	}
+	l = len(m.Pixels)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = len(m.Palette)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	return n
+}
+
+func (m *MsgFrameResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.BlockBytes != 0 {
+		n += 1 + sovTx(uint64(m.BlockBytes))
 	}
 	return n
 }
@@ -730,6 +1026,244 @@ func (m *MsgInputResponse) Unmarshal(dAtA []byte) error {
 				b := dAtA[iNdEx]
 				iNdEx++
 				m.Tic |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgFrame) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgFrame: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgFrame: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Submitter", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Submitter = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Tic", wireType)
+			}
+			m.Tic = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Tic |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Pixels", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Pixels = append(m.Pixels[:0], dAtA[iNdEx:postIndex]...)
+			if m.Pixels == nil {
+				m.Pixels = []byte{}
+			}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Palette", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Palette = append(m.Palette[:0], dAtA[iNdEx:postIndex]...)
+			if m.Palette == nil {
+				m.Palette = []byte{}
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgFrameResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgFrameResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgFrameResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field BlockBytes", wireType)
+			}
+			m.BlockBytes = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.BlockBytes |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}

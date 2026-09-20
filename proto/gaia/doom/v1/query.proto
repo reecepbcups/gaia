@@ -26,6 +26,13 @@ service Query {
   rpc Frame(QueryFrameRequest) returns (QueryFrameResponse) {
     option (google.api.http).get = "/gaia/doom/v1/frame";
   }
+
+  // Frames returns the tics this node has rendered since after_tic. A block
+  // runs tics_per_block tics and each of them draws a screen, so a client that
+  // only reads Frame sees one screen per block and misses the rest.
+  rpc Frames(QueryFramesRequest) returns (QueryFramesResponse) {
+    option (google.api.http).get = "/gaia/doom/v1/frames";
+  }
 }
 
 message QueryParamsRequest {}
@@ -63,4 +70,19 @@ message QueryFrameResponse {
   int64 block_height = 7;
   google.protobuf.Timestamp time = 8
       [ (gogoproto.nullable) = false, (gogoproto.stdtime) = true ];
+}
+
+message QueryFramesRequest {
+  // Only return frames drawn after this tic. Zero returns everything the node
+  // still has buffered, which is a fraction of a second.
+  uint64 after_tic = 1;
+}
+
+message QueryFramesResponse {
+  uint32 width = 1;
+  uint32 height = 2;
+
+  // Oldest first, and contiguous: the node buffers whole blocks.
+  repeated Frame frames = 3
+      [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
 }

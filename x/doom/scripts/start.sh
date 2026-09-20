@@ -13,6 +13,15 @@ CHAIN_ID=${CHAIN_ID:-doom-1}
 DENOM=${DENOM:-stake}
 KEYRING="--keyring-backend test --home $DOOM_HOME"
 
+# The block is the game clock, so these two set the game's speed between them:
+# the sim runs at TICS_PER_BLOCK tics per block and DOOM wants 35 a second.
+# Gaia commits about every 57ms on a laptop with timeout_commit at 28ms, which
+# 2 tics a block turns into roughly DOOM's native rate. Chase faster blocks with
+# TIMEOUT_COMMIT=0ms TICS_PER_BLOCK=1 and check the blocktime readout: land
+# under 35 blocks a second that way and the game runs in slow motion.
+TICS_PER_BLOCK=${TICS_PER_BLOCK:-2}
+TIMEOUT_COMMIT=${TIMEOUT_COMMIT:-28ms}
+
 # Freedoom Phase 1, a BSD-licensed IWAD that plays as Doom 1. The shareware
 # DOOM1.WAD isn't ours to hand out, so the demo defaults to this instead.
 # Point WAD_URL/WAD_SHA256 at your own IWAD to play the real thing.
@@ -67,26 +76,29 @@ cp "$WAD_CACHE" "$DOOM_HOME/doom.wad"
 
 $GAIAD keys add validator $KEYRING >/dev/null 2>&1
 $GAIAD keys add player $KEYRING >/dev/null 2>&1
+# Only spends when the node is pushing frames into block data. It needs its own
+# account so its sequence does not race the browser's.
+$GAIAD keys add frames $KEYRING >/dev/null 2>&1
 
 VALIDATOR=$($GAIAD keys show validator -a $KEYRING)
 PLAYER=$($GAIAD keys show player -a $KEYRING)
+FRAMES=$($GAIAD keys show frames -a $KEYRING)
 
 $GAIAD genesis add-genesis-account "$VALIDATOR" "1000000000000$DENOM" --home "$DOOM_HOME"
 $GAIAD genesis add-genesis-account "$PLAYER" "1000000000000$DENOM" --home "$DOOM_HOME"
+$GAIAD genesis add-genesis-account "$FRAMES" "1000000000000$DENOM" --home "$DOOM_HOME"
 $GAIAD genesis gentx validator "1000000000$DENOM" --chain-id "$CHAIN_ID" $KEYRING >/dev/null 2>&1
 $GAIAD genesis collect-gentxs --home "$DOOM_HOME" >/dev/null 2>&1
 
-python3 - "$DOOM_HOME/config/genesis.json" "$WAD_SHA256" <<'PY'
+python3 - "$DOOM_HOME/config/genesis.json" "$WAD_SHA256" "$TICS_PER_BLOCK" <<'PY'
 import json, sys
 
-path, wad = sys.argv[1], sys.argv[2]
+path, wad, tics = sys.argv[1], sys.argv[2], int(sys.argv[3])
 with open(path) as f:
     g = json.load(f)
 
 g['app_state']['doom']['params']['wad_hash'] = wad
-# Gaia commits a block roughly every 57ms on a laptop, so two tics a block is
-# what lands closest to DOOM's native 35 tics a second.
-g['app_state']['doom']['params']['tics_per_block'] = 2
+g['app_state']['doom']['params']['tics_per_block'] = tics
 
 # Playing costs 35 transactions a second, so the fee has to round down to
 # nothing. feemarket refuses a zero base price, so use the smallest one it will
@@ -100,10 +112,10 @@ with open(path, 'w') as f:
 PY
 
 # DOOM runs at 35 tics a second, so one tic per block wants a 28ms block.
-python3 - "$DOOM_HOME/config/config.toml" <<'PY'
+python3 - "$DOOM_HOME/config/config.toml" "$TIMEOUT_COMMIT" <<'PY'
 import re, sys
 
-path = sys.argv[1]
+path, timeout_commit = sys.argv[1], sys.argv[2]
 s = open(path).read()
 
 for key, value in [
@@ -113,7 +125,7 @@ for key, value in [
     ('timeout_prevote_delta', '40ms'),
     ('timeout_precommit', '40ms'),
     ('timeout_precommit_delta', '40ms'),
-    ('timeout_commit', '28ms'),
+    ('timeout_commit', timeout_commit),
     ('create_empty_blocks_interval', '0s'),
     # The browser client looks its own transactions back up by hash to show them
     # decoded, so the transaction index has to stay on.
@@ -147,9 +159,13 @@ chain     $CHAIN_ID
 home      $DOOM_HOME
 wad       $WAD_SHA256
 player    $PLAYER
+frames    $FRAMES
 
 in another shell:
   $GAIAD doom web --home $DOOM_HOME --keyring-backend test
+
+or, to watch the game entirely out of block data:
+  $GAIAD doom web --home $DOOM_HOME --keyring-backend test --frames block
 
 EOF
 

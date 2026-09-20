@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
 	"github.com/cosmos/gaia/v29/x/doom/types"
 )
 
@@ -49,6 +51,11 @@ func (k *Keeper) EndBlocker(ctx context.Context) error {
 		return fmt.Errorf("engine is at tic %d but chain is at tic %d", got, gs.Tic)
 	}
 
+	// Every tic draws, and the next one overwrites the framebuffer, so the
+	// screens have to be copied out here or the client only ever sees the last
+	// tic of each block.
+	drawn := make([]types.Frame, 0, params.TicsPerBlock)
+
 	for i := uint32(0); i < params.TicsPerBlock; i++ {
 		if err := k.Inputs.Set(ctx, gs.Tic, buttons); err != nil {
 			return err
@@ -57,12 +64,28 @@ func (k *Keeper) EndBlocker(ctx context.Context) error {
 			return err
 		}
 		gs.Tic++
+
+		pixels, palette, err := k.engine.Frame(ctx)
+		if err != nil {
+			return err
+		}
+		drawn = append(drawn, types.Frame{Tic: gs.Tic, Pixels: pixels, Palette: palette})
 	}
 
 	hash, err := k.engine.StateHash(ctx)
 	if err != nil {
 		return err
 	}
+
+	// The commitment covers the block's last tic, so the earlier tics carry the
+	// one that follows them. They were still drawn by this block.
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	for i := range drawn {
+		drawn[i].BlockHeight = sdkCtx.BlockHeight()
+		drawn[i].Time = sdkCtx.BlockTime()
+		drawn[i].StateHash = hash
+	}
+	k.frames.push(drawn...)
 
 	gs.StateHash = hash
 	gs.Buttons = buttons

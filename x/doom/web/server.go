@@ -49,6 +49,11 @@ type Config struct {
 	PollInterval time.Duration
 	// FeeDenom is the denom the browser pays its fee in.
 	FeeDenom string
+	// FrameSource is FrameSourceQuery or FrameSourceBlock.
+	FrameSource string
+	// FrameKey names the keyring key the node signs MsgFrame with. Only used
+	// when FrameSource is FrameSourceBlock.
+	FrameKey string
 }
 
 type server struct {
@@ -59,9 +64,14 @@ type server struct {
 // Serve runs the browser client until the context is cancelled.
 func Serve(ctx context.Context, cfg Config) error {
 	if cfg.PollInterval <= 0 {
-		// DOOM's native rate. Polling faster than the chain produces frames just
-		// burns queries.
-		cfg.PollInterval = time.Second / 35
+		cfg.PollInterval = 10 * time.Millisecond
+	}
+	if cfg.FrameSource == "" {
+		cfg.FrameSource = FrameSourceQuery
+	}
+	if cfg.FrameSource != FrameSourceQuery && cfg.FrameSource != FrameSourceBlock {
+		return fmt.Errorf("unknown frame source %q, want %s or %s",
+			cfg.FrameSource, FrameSourceQuery, FrameSourceBlock)
 	}
 
 	content, err := fs.Sub(staticFiles, "static")
@@ -92,7 +102,15 @@ func Serve(ctx context.Context, cfg Config) error {
 		_ = srv.Shutdown(shutdown)
 	}()
 
-	fmt.Printf("doom: play at http://%s\n", cfg.Listen)
+	if cfg.FrameSource == FrameSourceBlock {
+		go func() {
+			if err := s.pushFrames(ctx); err != nil {
+				fmt.Printf("doom: frame pusher stopped: %v\n", err)
+			}
+		}()
+	}
+
+	fmt.Printf("doom: play at http://%s (frames from %s)\n", cfg.Listen, cfg.FrameSource)
 
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return err
@@ -186,11 +204,26 @@ const (
 	stateHashSize   = 32
 	framePrefixSize = 8 + stateHashSize + 8 + 8
 	frameHeaderSize = framePrefixSize + engine.PaletteSize
+
+	// ticRate is DOOM's native rate and the rate frames leave here at,
+	// whatever the chain is doing.
+	ticRate = 35
+
+	// maxQueuedFrames caps how far ahead of the browser the stream is allowed
+	// to get. It bounds the latency pacing adds, so it wants to be about one
+	// block's worth of tics.
+	maxQueuedFrames = 4
 )
 
 // handleFrames streams the screen as length-prefixed binary chunks. Binary over
 // chunked HTTP keeps this dependency free; a 64KB paletted frame 35 times a
 // second is small enough that a websocket would not buy anything.
+//
+// Two clocks run here. The node is polled often enough never to miss a tic, and
+// frames go out at DOOM's native rate, because a block draws several tics at
+// once and writing them back to back would just leave the browser painting the
+// last one. Pacing costs up to a frame of latency and is the only way a block
+// rate below 35 looks like motion instead of a slideshow.
 func (s *server) handleFrames(w http.ResponseWriter, r *http.Request) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -202,49 +235,70 @@ func (s *server) handleFrames(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusOK)
 
-	ticker := time.NewTicker(s.cfg.PollInterval)
-	defer ticker.Stop()
+	if s.cfg.FrameSource == FrameSourceBlock {
+		s.streamFromBlocks(w, r, flusher)
+		return
+	}
+
+	poll := time.NewTicker(s.cfg.PollInterval)
+	defer poll.Stop()
+
+	play := time.NewTicker(time.Second / ticRate)
+	defer play.Stop()
 
 	buf := make([]byte, 4+frameHeaderSize+engine.FrameSize)
 	binary.LittleEndian.PutUint32(buf[0:4], uint32(frameHeaderSize+engine.FrameSize))
 
-	var lastTic uint64
-	var seen bool
+	var queued []types.Frame
+	var cursor uint64
 
 	for {
 		select {
 		case <-r.Context().Done():
 			return
-		case <-ticker.C:
-		}
 
-		frame, err := s.query.Frame(r.Context(), &types.QueryFrameRequest{})
-		if err != nil {
+		case <-poll.C:
 			// The node may not have booted the game yet. Keep polling.
-			continue
-		}
+			res, err := s.query.Frames(r.Context(), &types.QueryFramesRequest{AfterTic: cursor})
+			if err != nil || len(res.Frames) == 0 {
+				continue
+			}
 
-		if seen && frame.Tic == lastTic {
-			continue
-		}
-		lastTic, seen = frame.Tic, true
+			queued = append(queued, res.Frames...)
+			cursor = res.Frames[len(res.Frames)-1].Tic
 
-		prefix := buf[4 : 4+framePrefixSize]
-		for i := range prefix {
-			prefix[i] = 0
-		}
-		binary.LittleEndian.PutUint64(prefix[0:8], frame.Tic)
-		copy(prefix[8:8+stateHashSize], frame.StateHash)
-		binary.LittleEndian.PutUint64(prefix[40:48], uint64(frame.BlockHeight))
-		binary.LittleEndian.PutUint64(prefix[48:56], uint64(frame.Time.UnixMilli()))
+			// A chain running more tics a second than DOOM's 35 would otherwise
+			// build a delay that never drains. Drop to the newest instead: a
+			// skipped frame beats falling permanently behind.
+			if len(queued) > maxQueuedFrames {
+				queued = queued[len(queued)-maxQueuedFrames:]
+			}
 
-		copy(buf[4+framePrefixSize:4+frameHeaderSize], frame.Palette)
-		copy(buf[4+frameHeaderSize:], frame.Pixels)
+		case <-play.C:
+			if len(queued) == 0 {
+				continue
+			}
 
-		if _, err := w.Write(buf); err != nil {
-			return
+			frame := queued[0]
+			queued = queued[1:]
+
+			prefix := buf[4 : 4+framePrefixSize]
+			for i := range prefix {
+				prefix[i] = 0
+			}
+			binary.LittleEndian.PutUint64(prefix[0:8], frame.Tic)
+			copy(prefix[8:8+stateHashSize], frame.StateHash)
+			binary.LittleEndian.PutUint64(prefix[40:48], uint64(frame.BlockHeight))
+			binary.LittleEndian.PutUint64(prefix[48:56], uint64(frame.Time.UnixMilli()))
+
+			copy(buf[4+framePrefixSize:4+frameHeaderSize], frame.Palette)
+			copy(buf[4+frameHeaderSize:], frame.Pixels)
+
+			if _, err := w.Write(buf); err != nil {
+				return
+			}
+			flusher.Flush()
 		}
-		flusher.Flush()
 	}
 }
 

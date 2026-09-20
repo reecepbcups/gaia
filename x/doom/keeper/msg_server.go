@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 
@@ -8,6 +9,7 @@ import (
 
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 
+	"github.com/cosmos/gaia/v29/x/doom/engine"
 	"github.com/cosmos/gaia/v29/x/doom/types"
 )
 
@@ -87,4 +89,57 @@ func (s msgServer) UpdateParams(ctx context.Context, msg *types.MsgUpdateParams)
 	}
 
 	return &types.MsgUpdateParamsResponse{}, nil
+}
+
+// Frame accepts a screen into block data.
+//
+// The frame is checked against the one the engine is holding, which is the
+// last tic of the previous block: by the time this runs the engine has not
+// advanced yet, and every node agrees on what it drew. So the message cannot
+// carry a picture the sim never produced, and it cannot carry an intermediate
+// tic either, because that frame is already overwritten.
+func (s msgServer) Frame(ctx context.Context, msg *types.MsgFrame) (*types.MsgFrameResponse, error) {
+	params, err := s.k.Params.Get(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if params.WadHash == "" {
+		return nil, types.ErrEngineUnavailable
+	}
+
+	eng := s.k.Engine()
+	if eng == nil {
+		return nil, types.ErrEngineUnavailable
+	}
+
+	gs, err := s.k.GameState.Get(ctx)
+	if err != nil && !errIsNotFound(err) {
+		return nil, err
+	}
+
+	// A frame that missed its block is stale, not wrong. Saying so plainly
+	// beats letting it through and showing the player an old screen.
+	if msg.Tic != gs.Tic {
+		return nil, errorsmod.Wrapf(types.ErrFrameMismatch, "frame is for tic %d, chain is on %d", msg.Tic, gs.Tic)
+	}
+
+	pixels, err := types.RunLengthDecode(msg.Pixels, engine.FrameSize)
+	if err != nil {
+		return nil, errorsmod.Wrapf(sdkerrors.ErrInvalidRequest, "decode pixels: %s", err)
+	}
+
+	want, palette, err := eng.Frame(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if !bytes.Equal(pixels, want) {
+		return nil, errorsmod.Wrap(types.ErrFrameMismatch, "pixels")
+	}
+	if !bytes.Equal(msg.Palette, palette) {
+		return nil, errorsmod.Wrap(types.ErrFrameMismatch, "palette")
+	}
+
+	return &types.MsgFrameResponse{BlockBytes: uint64(len(msg.Pixels) + len(msg.Palette))}, nil
 }
