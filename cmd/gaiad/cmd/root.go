@@ -214,7 +214,11 @@ func initRootCmd(rootCmd *cobra.Command,
 		doomcli.NewRootCmd(),
 	)
 
-	server.AddCommands(rootCmd, gaia.DefaultNodeHome, ac.newApp, ac.appExport, addModuleInitFlags)
+	server.AddCommandsWithStartCmdOptions(rootCmd, gaia.DefaultNodeHome, ac.newApp, ac.appExport, server.StartCmdOptions{
+		AddFlags: addModuleInitFlags,
+		// Lets `gaiad start --doom.web` serve the browser client in process.
+		PostSetup: doomcli.StartWeb,
+	})
 
 	// add keybase, auxiliary RPC, query, and tx child commands
 	rootCmd.AddCommand(
@@ -231,6 +235,7 @@ func initRootCmd(rootCmd *cobra.Command,
 
 func addModuleInitFlags(startCmd *cobra.Command) {
 	wasm.AddModuleInitFlags(startCmd)
+	doomcli.AddStartFlags(startCmd)
 }
 
 // genesisCommand builds genesis-related `simd genesis` command. Users may provide application specific commands as a parameter

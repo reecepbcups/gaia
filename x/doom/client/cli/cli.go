@@ -22,6 +22,14 @@ const (
 	flagDenom  = "fee-denom"
 )
 
+// Defaults shared by `gaiad doom web` and the same server run from `gaiad start`.
+const (
+	defaultListen = "127.0.0.1:8666"
+	defaultPlayer = "player"
+	defaultPoll   = time.Second / 35
+	defaultDenom  = "stake"
+)
+
 // NewRootCmd returns the `gaiad doom` command tree.
 func NewRootCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -83,10 +91,10 @@ key so it signs and broadcasts its own input. Every keypress is a transaction.`,
 		},
 	}
 
-	cmd.Flags().String(flagListen, "127.0.0.1:8666", "host:port to serve the browser client on")
-	cmd.Flags().String(flagPlayer, "player", "keyring name of the key the browser plays with")
-	cmd.Flags().Duration(flagPoll, time.Second/35, "how often to ask the node for a new frame")
-	cmd.Flags().String(flagDenom, "stake", "denom the browser pays its fee in")
+	cmd.Flags().String(flagListen, defaultListen, "host:port to serve the browser client on")
+	cmd.Flags().String(flagPlayer, defaultPlayer, "keyring name of the key the browser plays with")
+	cmd.Flags().Duration(flagPoll, defaultPoll, "how often to ask the node for a new frame")
+	cmd.Flags().String(flagDenom, defaultDenom, "denom the browser pays its fee in")
 	flags.AddQueryFlagsToCmd(cmd)
 	// The browser plays with a key out of the node's keyring, so this command
 	// needs more than the query flags.
