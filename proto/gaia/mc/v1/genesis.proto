@@ -1,0 +1,23 @@
+syntax = "proto3";
+package gaia.mc.v1;
+
+import "gogoproto/gogo.proto";
+import "gaia/mc/v1/mc.proto";
+
+option go_package = "github.com/cosmos/gaia/x/mc/types";
+
+// GenesisState is the whole world.
+message GenesisState {
+  Params params = 1 [ (gogoproto.nullable) = false ];
+
+  GameState state = 2 [ (gogoproto.nullable) = false ];
+
+  Player player = 3 [ (gogoproto.nullable) = false ];
+
+  // Edits are the blocks that differ from the generated world.
+  repeated BlockEdit edits = 4 [ (gogoproto.nullable) = false ];
+
+  // Log is the input history. Exporting it is what lets a replay start from
+  // tick 0 and land on the same state hash.
+  repeated LogEntry log = 5 [ (gogoproto.nullable) = false ];
+}

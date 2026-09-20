@@ -1,0 +1,69 @@
+syntax = "proto3";
+package gaia.mc.v1;
+
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+import "gaia/mc/v1/mc.proto";
+
+option go_package = "github.com/cosmos/gaia/x/mc/types";
+
+// Query defines the gRPC querier service.
+service Query {
+  // Params returns the module parameters.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/gaia/mc/v1/params";
+  }
+
+  // State returns the tick, its commitment and where the player is.
+  rpc State(QueryStateRequest) returns (QueryStateResponse) {
+    option (google.api.http).get = "/gaia/mc/v1/state";
+  }
+
+  // Log returns what happened from a tick onwards, which is how the gateway
+  // turns consensus into packets without simulating anything itself.
+  rpc Log(QueryLogRequest) returns (QueryLogResponse) {
+    option (google.api.http).get = "/gaia/mc/v1/log/{from_tick}";
+  }
+
+  // Chunk returns the blocks in one chunk that differ from the generated
+  // world. The generated part is derived on both ends from params.
+  rpc Chunk(QueryChunkRequest) returns (QueryChunkResponse) {
+    option (google.api.http).get = "/gaia/mc/v1/chunk/{x}/{z}";
+  }
+}
+
+message QueryParamsRequest {}
+
+message QueryParamsResponse {
+  Params params = 1 [ (gogoproto.nullable) = false ];
+}
+
+message QueryStateRequest {}
+
+message QueryStateResponse {
+  GameState state = 1 [ (gogoproto.nullable) = false ];
+  Player player = 2 [ (gogoproto.nullable) = false ];
+}
+
+message QueryLogRequest {
+  // FromTick is inclusive, so a client passes back the tick after the last one
+  // it saw. A block logs against the tick it started on, so an exclusive cursor
+  // would skip whatever happened in the block a client joined during.
+  uint64 from_tick = 1;
+}
+
+message QueryLogResponse {
+  repeated LogEntry entries = 1 [ (gogoproto.nullable) = false ];
+
+  // Tick the world is on now, whether or not anything happened.
+  uint64 tick = 2;
+}
+
+message QueryChunkRequest {
+  int32 x = 1;
+  int32 z = 2;
+}
+
+message QueryChunkResponse {
+  repeated BlockEdit edits = 1 [ (gogoproto.nullable) = false ];
+}

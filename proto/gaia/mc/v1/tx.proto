@@ -1,0 +1,58 @@
+syntax = "proto3";
+package gaia.mc.v1;
+
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+import "cosmos_proto/cosmos.proto";
+import "cosmos/msg/v1/msg.proto";
+import "gaia/mc/v1/mc.proto";
+
+option go_package = "github.com/cosmos/gaia/x/mc/types";
+
+// Msg defines the mc Msg service.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // Tick applies everything the player did during one block.
+  rpc Tick(MsgTick) returns (MsgTickResponse);
+
+  // UpdateParams updates the x/mc module parameters.
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+}
+
+// MsgTick is one block's worth of play.
+//
+// The gateway batches whatever the client sent since the last block into one
+// of these, so a player moving sends about 20 positions a second and they all
+// land, in order, in the block that was open when they arrived.
+message MsgTick {
+  option (cosmos.msg.v1.signer) = "player";
+  option (amino.name) = "gaia/mc/MsgTick";
+  option (gogoproto.equal) = false;
+
+  string player = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  repeated Action actions = 2 [ (gogoproto.nullable) = false ];
+}
+
+message MsgTickResponse {
+  // Tick this batch is expected to land on.
+  uint64 tick = 1;
+}
+
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "gaia/mc/MsgUpdateParams";
+
+  // authority is the address that controls the module (defaults to x/gov unless
+  // overwritten).
+  string authority = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // params defines the x/mc parameters to update.
+  //
+  // NOTE: All parameters must be supplied.
+  Params params = 2
+      [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+}
+
+message MsgUpdateParamsResponse {}

@@ -33,6 +33,7 @@ import (
 	liquidtypes "github.com/cosmos/gaia/v29/x/liquid/types"
 
 	doomtypes "github.com/cosmos/gaia/v29/x/doom/types"
+	mctypes "github.com/cosmos/gaia/v29/x/mc/types"
 )
 
 func (appKeepers *AppKeepers) GenerateKeys() {
@@ -68,6 +69,7 @@ func (appKeepers *AppKeepers) GenerateKeys() {
 		tokenfactorytypes.StoreKey,
 		liquidtypes.StoreKey,
 		doomtypes.StoreKey,
+		mctypes.StoreKey,
 	)
 
 	// Define transient store keys

@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Minecraft on chain</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0e0e0e;
+    --panel: #161616;
+    --line: #2a2a2a;
+    --dim: #6b6b6b;
+    --faint: #444;
+    --text: #b4b4b4;
+    --bright: #dedede;
+    --green: #5f8f3e;
+    --red: #b03a30;
+    --blue: #5d7ea8;
+    --gold: #a8894a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+    padding: 16px;
+  }
+  .wrap { max-width: 1500px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+
+  header { display: flex; align-items: baseline; gap: 20px; flex-wrap: wrap; }
+  h1 { font-size: 15px; letter-spacing: .2em; color: var(--green); margin: 0; text-transform: uppercase; }
+  header .chip { color: var(--dim); }
+  header .chip b { color: var(--bright); font-weight: 500; }
+
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(360px, .9fr); gap: 12px; align-items: start; }
+  @media (max-width: 1150px) { .grid { grid-template-columns: 1fr; } }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); display: flex; flex-direction: column; min-width: 0; }
+  .panel > h2 {
+    margin: 0; padding: 7px 10px; font-size: 11px; font-weight: 500;
+    letter-spacing: .13em; text-transform: uppercase; color: var(--dim);
+    border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 10px; align-items: center;
+  }
+  .panel > h2 .note { letter-spacing: 0; text-transform: none; color: var(--faint); font-weight: 400; }
+
+  .feed { overflow-y: auto; font-size: 11.5px; height: 420px; }
+  .feed .row { display: grid; gap: 10px; padding: 2px 10px; white-space: nowrap; border-bottom: 1px solid #1c1c1c; align-items: baseline; }
+  .feed .row.empty { color: var(--faint); }
+  .feed .row.bad { color: var(--red); }
+  .blocks .row { grid-template-columns: 74px 84px 46px 1fr; }
+  .edits .row { grid-template-columns: 52px 150px 1fr 90px; }
+
+  .hash { color: var(--blue); cursor: pointer; text-overflow: ellipsis; overflow: hidden; }
+  .hash:hover { color: var(--bright); text-decoration: underline; }
+  .hash.on { color: var(--bright); }
+
+  .tag { color: var(--gold); }
+  .tag.break { color: var(--red); }
+  .tag.place { color: var(--green); }
+
+  .detail { padding: 10px; font-size: 11.5px; overflow-y: auto; height: 420px; }
+  .detail .kv { display: grid; grid-template-columns: 96px 1fr; gap: 4px 10px; }
+  .detail .kv span:first-child { color: var(--dim); }
+  .detail .kv span:last-child { word-break: break-all; color: var(--bright); }
+  .detail h3 {
+    margin: 14px 0 6px; font-size: 10px; font-weight: 500; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--dim);
+  }
+  .detail .ok { color: var(--green); }
+  .detail .fail { color: var(--red); }
+  .detail ol { margin: 0; padding-left: 26px; color: var(--text); }
+  .detail ol li { padding: 1px 0; }
+  .detail .hint { color: var(--faint); }
+
+  footer { color: var(--faint); font-size: 11px; }
+  footer b { color: var(--dim); font-weight: 400; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Minecraft on chain</h1>
+    <span class="chip">chain <b id="chain">-</b></span>
+    <span class="chip">height <b id="height">-</b></span>
+    <span class="chip">tick <b id="tick">-</b></span>
+    <span class="chip">blocks/s <b id="rate">-</b></span>
+    <span class="chip">player <b id="player">-</b></span>
+    <span class="chip">state <b id="statehash">-</b></span>
+  </header>
+
+  <div class="grid">
+
+    <section class="panel">
+      <h2>Blocks <span class="note" id="blockNote">walking from the head</span></h2>
+      <div class="feed blocks" id="blocks"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Edits <span class="note">what landed, in the block it landed in</span></h2>
+      <div class="feed edits" id="edits"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Transaction <span class="note" id="txNote">click a hash</span></h2>
+      <div class="detail" id="tx">
+        <p class="hint">Every hash on this page was decoded out of block data, not
+        read back from an index. Click one to see the message that was signed.</p>
+      </div>
+    </section>
+
+  </div>
+
+  <footer>
+    <b>The world is the chain's.</b> Blocks and results come from the node's
+    <b>/block</b> and <b>/block_results</b>, so nothing here needs the transaction
+    indexer. Playing goes through the Minecraft gateway on 25565; this page only reads.
+  </footer>
+
+</div>
+<script src="app.js"></script>
+</body>
+</html>

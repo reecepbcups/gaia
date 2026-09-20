@@ -89,6 +89,8 @@ import (
 	doomtypes "github.com/cosmos/gaia/v29/x/doom/types"
 	liquidkeeper "github.com/cosmos/gaia/v29/x/liquid/keeper"
 	liquidtypes "github.com/cosmos/gaia/v29/x/liquid/types"
+	mckeeper "github.com/cosmos/gaia/v29/x/mc/keeper"
+	mctypes "github.com/cosmos/gaia/v29/x/mc/types"
 )
 
 type AppKeepers struct {
@@ -106,6 +108,7 @@ type AppKeepers struct {
 	DistrKeeper        distrkeeper.Keeper
 	LiquidKeeper       *liquidkeeper.Keeper
 	DoomKeeper         *doomkeeper.Keeper
+	MCKeeper           *mckeeper.Keeper
 	GovKeeper          *govkeeper.Keeper
 	UpgradeKeeper      *upgradekeeper.Keeper
 	WasmKeeper         wasmkeeper.Keeper
@@ -262,6 +265,15 @@ func NewAppKeeper(
 		runtime.NewKVStoreService(appKeepers.keys[doomtypes.StoreKey]),
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 		doomkeeper.LoadWAD(homePath, logger),
+	)
+
+	// The world is entirely consensus state, so unlike DOOM there is nothing
+	// node-local to hand it. The gateway that speaks Minecraft to a client is a
+	// reader of this keeper, not part of it.
+	appKeepers.MCKeeper = mckeeper.NewKeeper(
+		appCodec,
+		runtime.NewKVStoreService(appKeepers.keys[mctypes.StoreKey]),
+		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
 
 	// register the staking hooks

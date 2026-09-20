@@ -1,0 +1,134 @@
+syntax = "proto3";
+package gaia.mc.v1;
+
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+import "cosmos_proto/cosmos.proto";
+
+option go_package = "github.com/cosmos/gaia/x/mc/types";
+
+// Params configures the world.
+message Params {
+  option (amino.name) = "gaia/x/mc/Params";
+  option (gogoproto.equal) = true;
+
+  // TicksPerBlock is how many game ticks a block advances the world by.
+  // Minecraft wants 20 a second, so this is set against the block rate the
+  // chain actually manages.
+  uint32 ticks_per_block = 1;
+
+  // Controller is the only address allowed to play. Empty means anyone, which
+  // on a single player world means whoever gets a transaction in first.
+  string controller = 2 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // GroundLevel is the Y of the topmost solid layer of the superflat world.
+  // Everything above it is air and everything below is stone.
+  int32 ground_level = 3;
+}
+
+// GameState is the world clock and its commitment.
+message GameState {
+  // Tick the world is sitting on. Height N is tick N * ticks_per_block.
+  uint64 tick = 1;
+
+  // StateHash commits to the whole world: the player, every block edit and the
+  // tick. A node that replayed the log differently fails the apphash.
+  bytes state_hash = 2;
+}
+
+// Player is where the player is and what it is holding.
+//
+// Positions are fixed point in 1/4096 of a block and angles in 1/100 of a
+// degree. Nothing in consensus touches a float, because Go is allowed to fuse
+// a multiply-add on some architectures and not others, which would fork the
+// chain across validator hardware.
+message Player {
+  // Address that owns the seat. Empty until someone joins.
+  string address = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  int64 x = 2;
+  int64 y = 3;
+  int64 z = 4;
+
+  int32 yaw = 5;
+  int32 pitch = 6;
+
+  bool on_ground = 7;
+
+  // Hotbar slot 0-8, which is what the next Place puts down.
+  uint32 hotbar = 8;
+
+  // Joined is false before the first transaction, so a fresh world knows to
+  // spawn the player rather than restore it.
+  bool joined = 9;
+}
+
+// BlockPos is a block coordinate.
+message BlockPos {
+  int32 x = 1;
+  int32 y = 2;
+  int32 z = 3;
+}
+
+// Move is a position report.
+//
+// Minecraft's movement has always been client authoritative, so this is the
+// client saying where it is rather than the server deciding. The chain records
+// it; nothing here simulates physics.
+message Move {
+  int64 x = 1;
+  int64 y = 2;
+  int64 z = 3;
+  int32 yaw = 4;
+  int32 pitch = 5;
+  bool on_ground = 6;
+}
+
+// Dig removes a block.
+message Dig { BlockPos pos = 1 [ (gogoproto.nullable) = false ]; }
+
+// Place puts a block down.
+message Place {
+  BlockPos pos = 1 [ (gogoproto.nullable) = false ];
+
+  // State is a global palette block state id, the same numbering the client
+  // uses on the wire. The gateway resolves it from the held item.
+  uint32 state = 2;
+}
+
+// Chat is a line the player typed.
+message Chat { string text = 1; }
+
+// Hotbar selects a slot.
+message Hotbar { uint32 slot = 1; }
+
+// Action is one thing the player did during one tick.
+message Action {
+  oneof kind {
+    Move move = 1;
+    Dig dig = 2;
+    Place place = 3;
+    Chat chat = 4;
+    Hotbar hotbar = 5;
+  }
+}
+
+// TickLog is everything that happened in one block, in the order it happened.
+//
+// Replaying these from tick 0 rebuilds the world, which is why this and not
+// the world itself is what the chain is really storing.
+message TickLog {
+  repeated Action actions = 1 [ (gogoproto.nullable) = false ];
+}
+
+// LogEntry is one tick's actions, as the log hands them back.
+message LogEntry {
+  uint64 tick = 1;
+  repeated Action actions = 2 [ (gogoproto.nullable) = false ];
+}
+
+// BlockEdit is one block that differs from the generated world.
+message BlockEdit {
+  BlockPos pos = 1 [ (gogoproto.nullable) = false ];
+  uint32 state = 2;
+}
