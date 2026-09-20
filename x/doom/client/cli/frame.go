@@ -36,8 +36,8 @@ it walks back from the tip until it finds one.`,
 				return err
 			}
 
-			height := int64(0)
-			if len(args) == 1 {
+			height, exact := int64(0), len(args) == 1
+			if exact {
 				if height, err = strconv.ParseInt(args[0], 10, 64); err != nil {
 					return fmt.Errorf("height %q: %w", args[0], err)
 				}
@@ -48,7 +48,7 @@ it walks back from the tip until it finds one.`,
 				return err
 			}
 
-			return runFrame(cmd, clientCtx, height, out)
+			return runFrame(cmd, clientCtx, height, exact, out)
 		},
 	}
 
@@ -63,7 +63,7 @@ it walks back from the tip until it finds one.`,
 // pusher is not running.
 const searchDepth = 20
 
-func runFrame(cmd *cobra.Command, clientCtx client.Context, height int64, out string) error {
+func runFrame(cmd *cobra.Command, clientCtx client.Context, height int64, exact bool, out string) error {
 	ctx := cmd.Context()
 
 	if height == 0 {
@@ -76,8 +76,14 @@ func runFrame(cmd *cobra.Command, clientCtx client.Context, height int64, out st
 
 	decoder := clientCtx.TxConfig.TxDecoder()
 
-	for depth := 0; depth < searchDepth; depth++ {
-		at := height - int64(depth)
+	depth := searchDepth
+	if exact {
+		// An explicit height means that block and no other.
+		depth = 1
+	}
+
+	for d := 0; d < depth; d++ {
+		at := height - int64(d)
 		if at < 1 {
 			break
 		}
@@ -129,17 +135,10 @@ func runFrame(cmd *cobra.Command, clientCtx client.Context, height int64, out st
 				return nil
 			}
 		}
-
-		// An explicit height means that block and no other.
-		if len(args(cmd)) == 1 {
-			break
-		}
 	}
 
-	return fmt.Errorf("no frame in block data at or below height %d; is the node running with --frames block?", height)
-}
-
-// args reports the positional arguments the command was given.
-func args(cmd *cobra.Command) []string {
-	return cmd.Flags().Args()
+	if exact {
+		return fmt.Errorf("no frame in block %d", height)
+	}
+	return fmt.Errorf("no frame in the %d blocks below %d; is the node running with --frames block?", searchDepth, height)
 }

@@ -141,6 +141,16 @@ Measured on a laptop, against the ~33fps the default manages:
 - A frame that misses its block is rejected rather than shown late, so you lose one every few
   seconds and the game visibly hitches.
 
+Read one back out with:
+
+```bash
+gaiad doom frame               # newest block that carries one
+gaiad doom frame 5362 --png shot.png
+```
+
+It decodes the block's `MsgFrame` itself, so it only finds anything while the node is pushing.
+On the default setup there is no picture in any block and the command says so.
+
 You can check the rejection is real. Sign a `MsgFrame` for the right tic with the wrong pixels
 and the chain says so:
 
