@@ -13,10 +13,13 @@ CHAIN_ID=${CHAIN_ID:-doom-1}
 DENOM=${DENOM:-stake}
 KEYRING="--keyring-backend test --home $DOOM_HOME"
 
-# Shareware DOOM1.WAD v1.9. Point WAD_URL/WAD_SHA256 at your own IWAD to play
-# the full game.
-WAD_URL=${WAD_URL:-https://github.com/Akbar30Bill/DOOM_wads/raw/master/doom1.wad}
-WAD_SHA256=${WAD_SHA256:-1d7d43be501e67d927e415e0b8f3e29c3bf33075e859721816f652a526cac771}
+# Freedoom Phase 1, a BSD-licensed IWAD that plays as Doom 1. The shareware
+# DOOM1.WAD isn't ours to hand out, so the demo defaults to this instead.
+# Point WAD_URL/WAD_SHA256 at your own IWAD to play the real thing.
+WAD_URL=${WAD_URL:-https://github.com/freedoom/freedoom/releases/download/v0.13.0/freedoom-0.13.0.zip}
+WAD_SHA256=${WAD_SHA256:-7323bcc168c5a45ff10749b339960e98314740a734c30d4b9f3337001f9e703d}
+# Only used when WAD_URL is a zip: which entry inside it is the IWAD.
+WAD_ZIP_ENTRY=${WAD_ZIP_ENTRY:-freedoom-0.13.0/freedoom1.wad}
 
 ROOT=$(cd "$(dirname "$0")/../../.." && pwd)
 GAIAD=${GAIAD:-$ROOT/build/gaiad}
@@ -32,11 +35,22 @@ sha256() {
 }
 
 # The WAD is node-local: the chain only commits to its hash.
-WAD_CACHE=${WAD_CACHE:-$HOME/.cache/doom1.wad}
+WAD_CACHE=${WAD_CACHE:-$HOME/.cache/gaia-doom-iwad.wad}
 if [ ! -f "$WAD_CACHE" ]; then
   echo "fetching iwad"
   mkdir -p "$(dirname "$WAD_CACHE")"
-  curl -fsSL -o "$WAD_CACHE" "$WAD_URL"
+  case "$WAD_URL" in
+  *.zip)
+    command -v unzip >/dev/null || { echo "unzip is needed to unpack $WAD_URL" >&2; exit 1; }
+    TMPZIP=$(mktemp -d)
+    curl -fsSL -o "$TMPZIP/iwad.zip" "$WAD_URL"
+    unzip -p "$TMPZIP/iwad.zip" "$WAD_ZIP_ENTRY" > "$WAD_CACHE" || { rm -f "$WAD_CACHE"; rm -rf "$TMPZIP"; exit 1; }
+    rm -rf "$TMPZIP"
+    ;;
+  *)
+    curl -fsSL -o "$WAD_CACHE" "$WAD_URL"
+    ;;
+  esac
 fi
 
 GOT=$(sha256 "$WAD_CACHE")

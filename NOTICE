@@ -1,0 +1,51 @@
+Cosmos Hub (Gaia)
+Copyright the Gaia authors.
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE),
+except for the third-party components listed below.
+
+
+x/doom -- DOOM engine (GPL-2.0-or-later)
+----------------------------------------
+
+x/doom/wasmbuild/doomgeneric.tar.gz is the doomgeneric/ directory of
+https://github.com/ozkl/doomgeneric at commit
+dcb7a8dbc7a16ce3dda29382ac9aae9d77d21284, unmodified.
+
+  Copyright (C) 1993-1996 Id Software, Inc.
+  Copyright (C) 2005-2014 Simon Howard and the Chocolate Doom authors
+  Copyright (C) doomgeneric authors
+
+It is licensed under the GNU General Public License, version 2 or (at your
+option) any later version. The full text is in x/doom/wasmbuild/LICENSE.
+
+These files are derived from it and carry the same license:
+
+  x/doom/wasmbuild/doomgeneric_chain.c   the chain port, written for this repo
+  x/doom/engine/doom.wasm                compiled from the two above
+
+Because that GPL code is "or later", the Apache-2.0 parts of Gaia can be
+combined with it under GPL-3.0. A gaiad binary built with the x/doom module
+linked in is therefore distributed under GPL-3.0. Building Gaia without the
+x/doom module leaves it Apache-2.0 only.
+
+The complete corresponding source for x/doom/engine/doom.wasm is in
+x/doom/wasmbuild (tarball, chain port, and the Makefile that builds it).
+
+
+x/doom/web/static/secp256k1.js (MIT)
+------------------------------------
+
+noble-secp256k1, Copyright (c) 2019 Paul Miller (https://paulmillr.com).
+Licensed under the MIT License.
+
+
+Trademarks
+----------
+
+DOOM is a trademark of id Software LLC / ZeniMax Media Inc. This project is
+not affiliated with, endorsed by, or sponsored by id Software, ZeniMax, or
+Microsoft. The name is used only to describe what the module runs.
+
+No game data ships in this repository. x/doom defaults to Freedoom
+(https://freedoom.github.io), which is BSD-3-Clause and free to redistribute.

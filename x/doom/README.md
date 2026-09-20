@@ -42,7 +42,7 @@ browser  --signed MsgInput-->  mempool  -->  EndBlocker  -->  wasm DOOM  -->  fr
 - `web/` serves the browser client and proxies its transactions to the node.
 
 The IWAD itself is node-local config, not state. Params commit to its sha256, so every node has
-to be playing the same game, but nobody ships 4MB of Id Software in a genesis file.
+to be playing the same game, but nobody ships 4MB of game data in a genesis file.
 
 ## Running it
 
@@ -50,7 +50,7 @@ to be playing the same game, but nobody ships 4MB of Id Software in a genesis fi
 make doom-start
 ```
 
-That wipes `~/.gaia-doom`, fetches the shareware WAD, builds a single validator genesis with
+That wipes `~/.gaia-doom`, fetches the Freedoom IWAD, builds a single validator genesis with
 `wad_hash` set, and starts the node. Then in another shell:
 
 ```bash
@@ -117,6 +117,17 @@ second through a wallet popup was never going to happen.
 
 ## Licensing
 
-`wasmbuild/doomgeneric.tar.gz` is GPL-2.0 (see `wasmbuild/LICENSE`), inherited from Id
-Software's 1997 source release via doomgeneric. The rest of gaia is Apache-2.0. The Go code doesn't link the C; it loads it as a
-sandboxed wasm module. Worth a real look before any of this ships anywhere.
+`wasmbuild/doomgeneric.tar.gz` is GPL-2.0-or-later (see `wasmbuild/LICENSE`), inherited from
+id Software via Chocolate Doom and doomgeneric. `doomgeneric_chain.c` and the compiled
+`engine/doom.wasm` are the same license. The rest of gaia is Apache-2.0.
+
+The Go code doesn't link the C, it loads it as a sandboxed wasm module, but the wasm is
+`go:embed`ed into the binary so the two ship together. Since the DOOM side is "or later", a
+gaiad built with this module is distributed under GPL-3.0. Build without x/doom and gaia stays
+Apache-2.0. Full breakdown in the repo's [NOTICE](../../NOTICE).
+
+No game data lives here. `make doom-start` fetches [Freedoom](https://freedoom.github.io)
+Phase 1, which is BSD-3-Clause, and the shareware DOOM1.WAD is deliberately not the default
+because it isn't ours to hand out. Set `WAD_URL`/`WAD_SHA256` to point at an IWAD you own.
+
+DOOM is a trademark of id Software / ZeniMax. This is not affiliated with or endorsed by them.

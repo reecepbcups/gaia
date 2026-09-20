@@ -26,7 +26,7 @@ func TestParamsValidate(t *testing.T) {
 		},
 		{
 			name:   "a real wad hash",
-			mutate: func(p *types.Params) { p.WadHash = types.SharewareWADHash },
+			mutate: func(p *types.Params) { p.WadHash = types.FreedoomWADHash },
 		},
 		{
 			name:    "wad hash is not hex",

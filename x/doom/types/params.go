@@ -7,9 +7,10 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// SharewareWADHash is sha256 of the v1.9 shareware DOOM1.WAD, the IWAD a chain
-// gets by default. Override it in params to run a different one.
-const SharewareWADHash = "1d7d43be501e67d927e415e0b8f3e29c3bf33075e859721816f652a526cac771"
+// FreedoomWADHash is sha256 of freedoom1.wad from Freedoom 0.13.0, the IWAD a
+// chain gets by default. It is freely redistributable, which the shareware
+// DOOM1.WAD is not. Override it in params to run a different one.
+const FreedoomWADHash = "7323bcc168c5a45ff10749b339960e98314740a734c30d4b9f3337001f9e703d"
 
 // MaxTicsPerBlock caps how far a single block may advance the game. A block
 // that runs a second of DOOM is already stretching what "live" means, and the

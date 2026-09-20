@@ -1,9 +1,14 @@
 # Builds DOOM into the wasm32-wasi reactor module that x/doom/engine embeds.
 # See ../README.md.
 #
-# doomgeneric.tar.gz is upstream doomgeneric, kept as one blob so 178 files of
-# vendored C stay out of the diff. Only doomgeneric_chain.c, the port that makes
-# the host drive the game, lives here in the open.
+# doomgeneric.tar.gz is the doomgeneric/ directory of
+# https://github.com/ozkl/doomgeneric, byte for byte as of commit
+# dcb7a8dbc7a16ce3dda29382ac9aae9d77d21284 (2026-04-12). Kept as one blob so 178
+# files of vendored C stay out of the diff. Only doomgeneric_chain.c, the port
+# that makes the host drive the game, lives here in the open.
+#
+# That code is GPL-2.0-or-later, from id Software via Chocolate Doom. LICENSE
+# next to this file is upstream's copy. See ../README.md and ../../../NOTICE.
 #
 # Needs wasi-sdk: `make toolchain` puts one in ~/.wasi-sdk.
 
