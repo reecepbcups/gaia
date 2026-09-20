@@ -166,7 +166,15 @@ doom-web:
 doom-wasm:
 	$(MAKE) -C x/doom/wasmbuild
 
-.PHONY: doom-start doom-web doom-wasm
+# Boots a single validator chain holding a Minecraft world. See x/mc/README.md.
+mc-start:
+	./x/mc/scripts/start.sh
+
+# Serves the Minecraft protocol against it. Point a 1.20.2 client at 127.0.0.1:25565.
+mc-serve:
+	$(BUILDDIR)/gaiad mc serve --home $(HOME)/.gaia-mc --keyring-backend test
+
+.PHONY: doom-start doom-web doom-wasm mc-start mc-serve
 
 ###############################################################################
 ###                              Version Bump                               ###

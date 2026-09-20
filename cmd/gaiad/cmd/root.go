@@ -58,6 +58,7 @@ import (
 
 	gaia "github.com/cosmos/gaia/v29/app"
 	doomcli "github.com/cosmos/gaia/v29/x/doom/client/cli"
+	mccli "github.com/cosmos/gaia/v29/x/mc/client/cli"
 )
 
 // NewRootCmd creates a new root command for simd. It is called once in the
@@ -212,6 +213,7 @@ func initRootCmd(rootCmd *cobra.Command,
 		pruning.Cmd(ac.newApp, gaia.DefaultNodeHome),
 		snapshot.Cmd(ac.newApp),
 		doomcli.NewRootCmd(),
+		mccli.NewRootCmd(),
 	)
 
 	server.AddCommandsWithStartCmdOptions(rootCmd, gaia.DefaultNodeHome, ac.newApp, ac.appExport, server.StartCmdOptions{

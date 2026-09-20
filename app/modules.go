@@ -59,6 +59,8 @@ import (
 	gaiagov "github.com/cosmos/gaia/v29/x/gov"
 	"github.com/cosmos/gaia/v29/x/liquid"
 	liquidtypes "github.com/cosmos/gaia/v29/x/liquid/types"
+	"github.com/cosmos/gaia/v29/x/mc"
+	mctypes "github.com/cosmos/gaia/v29/x/mc/types"
 	"github.com/cosmos/gaia/v29/x/metaprotocols"
 	metaprotocolstypes "github.com/cosmos/gaia/v29/x/metaprotocols/types"
 )
@@ -116,6 +118,7 @@ func appModules(
 		tendermint.NewAppModule(tmLightClientModule),
 		liquid.NewAppModule(appCodec, app.LiquidKeeper, app.AccountKeeper, app.BankKeeper, app.StakingKeeper),
 		doom.NewAppModule(appCodec, app.DoomKeeper),
+		mc.NewAppModule(appCodec, app.MCKeeper),
 		tokenfactory.NewAppModule(app.TokenFactoryKeeper, app.AccountKeeper, app.BankKeeper, nil),
 	}
 }
@@ -197,6 +200,7 @@ func orderBeginBlockers() []string {
 		wasmtypes.ModuleName,
 		ibcwasmtypes.ModuleName,
 		doomtypes.ModuleName,
+		mctypes.ModuleName,
 	}
 }
 
@@ -227,6 +231,7 @@ func orderEndBlockers() []string {
 		wasmtypes.ModuleName,
 		ibcwasmtypes.ModuleName,
 		doomtypes.ModuleName,
+		mctypes.ModuleName,
 	}
 }
 
@@ -271,5 +276,6 @@ func orderInitBlockers() []string {
 		liquidtypes.ModuleName,
 		tokenfactorytypes.ModuleName,
 		doomtypes.ModuleName,
+		mctypes.ModuleName,
 	}
 }
