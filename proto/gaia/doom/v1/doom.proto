@@ -1,0 +1,103 @@
+syntax = "proto3";
+package gaia.doom.v1;
+
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/cosmos/gaia/x/doom/types";
+
+// Button is a bit index into the button mask carried by MsgInput. The mask is
+// edge-triggered: the engine sees a key press when a bit goes 0 -> 1 and a key
+// release when it goes 1 -> 0, so holding fire means setting BUTTON_FIRE in
+// every tic's mask.
+enum Button {
+  option (gogoproto.goproto_enum_prefix) = false;
+
+  BUTTON_FORWARD = 0;
+  BUTTON_BACKWARD = 1;
+  BUTTON_TURN_LEFT = 2;
+  BUTTON_TURN_RIGHT = 3;
+  BUTTON_STRAFE_LEFT = 4;
+  BUTTON_STRAFE_RIGHT = 5;
+  BUTTON_FIRE = 6;
+  BUTTON_USE = 7;
+  BUTTON_RUN = 8;
+  BUTTON_STRAFE = 9;
+  BUTTON_ESCAPE = 10;
+  BUTTON_ENTER = 11;
+  BUTTON_MAP = 12;
+  BUTTON_YES = 13;
+  BUTTON_NO = 14;
+  BUTTON_WEAPON_1 = 15;
+  BUTTON_WEAPON_2 = 16;
+  BUTTON_WEAPON_3 = 17;
+  BUTTON_WEAPON_4 = 18;
+  BUTTON_WEAPON_5 = 19;
+  BUTTON_WEAPON_6 = 20;
+  BUTTON_WEAPON_7 = 21;
+}
+
+// Params configures the game the chain is running.
+message Params {
+  option (amino.name) = "gaia/x/doom/Params";
+  option (gogoproto.equal) = true;
+
+  // sha256 of the IWAD the node must load, hex encoded. Every node has to feed
+  // the engine the same WAD or the sim diverges, so the hash is consensus data
+  // even though the file itself is not.
+  string wad_hash = 1;
+
+  // How many game tics to advance per block. DOOM's native rate is 35 tics/s,
+  // so 1 tic per block wants ~28ms blocks. Bump this if the chain runs slower.
+  uint32 tics_per_block = 2;
+
+  // How many past tics of input to keep, 0 for all of them. Keeping all of
+  // them is what lets a restarted node rebuild the game by replaying from tic
+  // 0; prune and you trade that away for disk.
+  uint64 input_history = 3;
+
+  // Address allowed to send MsgInput. Empty means anybody can play.
+  string controller = 4;
+}
+
+// GameState is the chain's view of the running game.
+message GameState {
+  option (gogoproto.equal) = true;
+
+  // Tics executed so far. Also the index of the next input to be consumed.
+  uint64 tic = 1;
+
+  // sha256 over the engine's linear memory after the last executed tic. This is
+  // the commitment that makes a divergent replay show up as an apphash mismatch.
+  bytes state_hash = 2;
+
+  // Button mask most recently applied.
+  uint32 buttons = 3;
+}
+
+// Frame is the screen one tic drew.
+//
+// Frames are not consensus state: the engine re-derives them from the sim and
+// the chain only commits to a hash of the sim. They are carried here so a
+// client can watch every tic instead of only the last one of each block.
+message Frame {
+  // The tic that drew this screen.
+  uint64 tic = 1;
+
+  // One palette index per pixel, row major.
+  bytes pixels = 2;
+
+  // 256 BGRA entries as of this tic.
+  bytes palette = 3;
+
+  // The block that drew it.
+  int64 block_height = 4;
+
+  // That block's state commitment. It covers the block's last tic, so the
+  // earlier tics of a block share the commitment that follows them.
+  bytes state_hash = 5;
+
+  google.protobuf.Timestamp time = 6
+      [ (gogoproto.nullable) = false, (gogoproto.stdtime) = true ];
+}

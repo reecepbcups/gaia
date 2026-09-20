@@ -1,0 +1,100 @@
+syntax = "proto3";
+package gaia.doom.v1;
+
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+import "cosmos_proto/cosmos.proto";
+import "cosmos/msg/v1/msg.proto";
+import "gaia/doom/v1/doom.proto";
+
+option go_package = "github.com/cosmos/gaia/x/doom/types";
+
+// Msg defines the doom Msg service.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // Input sets the buttons held down for the tics run by the block it lands in.
+  rpc Input(MsgInput) returns (MsgInputResponse);
+
+  // Frame pushes a rendered screen into block data.
+  //
+  // It buys nothing a client could not derive for itself, which is the point:
+  // it is what watching the game entirely out of the blocks costs. The handler
+  // only accepts a frame that matches what the engine already drew, so the
+  // bytes are redundant by construction and a node cannot smuggle a picture
+  // the sim never produced.
+  rpc Frame(MsgFrame) returns (MsgFrameResponse);
+
+  // UpdateParams updates the x/doom module parameters.
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+}
+
+// MsgInput holds down a set of buttons.
+//
+// One of these per tic is what playing the game looks like: a client sends
+// roughly 35 a second and the EndBlocker feeds the last one it saw to the
+// engine. A tic with no input is a released-keys tic, same as a dropped packet
+// in a vanilla netgame.
+message MsgInput {
+  option (cosmos.msg.v1.signer) = "player";
+  option (amino.name) = "gaia/doom/MsgInput";
+  option (gogoproto.equal) = false;
+
+  string player = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // Bit mask of Button values.
+  uint32 buttons = 2;
+}
+
+message MsgInputResponse {
+  // Tic this input is expected to land on.
+  uint64 tic = 1;
+}
+
+// MsgFrame carries one screen.
+//
+// Only the last tic of a block can be checked, because that is the only frame
+// the engine still holds when the next block's transactions run. Intermediate
+// tics are gone by then, so this pushes one frame per block and a client
+// reading blocks sees the game at the block rate rather than at 35Hz.
+message MsgFrame {
+  option (cosmos.msg.v1.signer) = "submitter";
+  option (amino.name) = "gaia/doom/MsgFrame";
+  option (gogoproto.equal) = false;
+
+  string submitter = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // The tic this screen was drawn by. It has to be the tic the chain is
+  // sitting on, so a frame that misses its block is rejected rather than
+  // shown late.
+  uint64 tic = 2;
+
+  // Palette indices, run length encoded. A DOOM screen is mostly flat runs, so
+  // this is worth roughly 3x and the block data is the whole cost here.
+  bytes pixels = 3;
+
+  // 256 BGRA entries, uncompressed.
+  bytes palette = 4;
+}
+
+message MsgFrameResponse {
+  // How many bytes of block data the frame cost, so a client can see the bill.
+  uint64 block_bytes = 1;
+}
+
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "gaia/doom/MsgUpdateParams";
+
+  // authority is the address that controls the module (defaults to x/gov unless
+  // overwritten).
+  string authority = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // params defines the x/doom parameters to update.
+  //
+  // NOTE: All parameters must be supplied.
+  Params params = 2
+      [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+}
+
+message MsgUpdateParamsResponse {}

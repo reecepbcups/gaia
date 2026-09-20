@@ -1,0 +1,88 @@
+syntax = "proto3";
+package gaia.doom.v1;
+
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+import "gaia/doom/v1/doom.proto";
+
+option go_package = "github.com/cosmos/gaia/x/doom/types";
+
+// Query defines the gRPC querier service.
+service Query {
+  // Params queries the x/doom module parameters.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/gaia/doom/v1/params";
+  }
+
+  // State queries the current tic and its state commitment.
+  rpc State(QueryStateRequest) returns (QueryStateResponse) {
+    option (google.api.http).get = "/gaia/doom/v1/state";
+  }
+
+  // Frame returns the current screen. The framebuffer is not consensus state,
+  // it is re-derived from the engine, so this is a node-local read.
+  rpc Frame(QueryFrameRequest) returns (QueryFrameResponse) {
+    option (google.api.http).get = "/gaia/doom/v1/frame";
+  }
+
+  // Frames returns the tics this node has rendered since after_tic. A block
+  // runs tics_per_block tics and each of them draws a screen, so a client that
+  // only reads Frame sees one screen per block and misses the rest.
+  rpc Frames(QueryFramesRequest) returns (QueryFramesResponse) {
+    option (google.api.http).get = "/gaia/doom/v1/frames";
+  }
+}
+
+message QueryParamsRequest {}
+
+message QueryParamsResponse {
+  Params params = 1
+      [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+}
+
+message QueryStateRequest {}
+
+message QueryStateResponse {
+  GameState state = 1
+      [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+}
+
+message QueryFrameRequest {}
+
+message QueryFrameResponse {
+  // The committed tic state_hash belongs to. The pixels can be up to one
+  // block newer, because the engine advances during FinalizeBlock while a
+  // query reads the store as of the last commit. Labelling the frame with the
+  // committed tic keeps the pair below verifiable against the chain.
+  uint64 tic = 1;
+  uint32 width = 2;
+  uint32 height = 3;
+  // One palette index per pixel, row major.
+  bytes pixels = 4;
+  // 256 entries of BGRA.
+  bytes palette = 5;
+  // The state commitment this frame was rendered from, so a client can show
+  // what the chain actually agreed on rather than just the picture.
+  bytes state_hash = 6;
+  // The block that committed it.
+  int64 block_height = 7;
+  google.protobuf.Timestamp time = 8
+      [ (gogoproto.nullable) = false, (gogoproto.stdtime) = true ];
+}
+
+message QueryFramesRequest {
+  // Only return frames drawn after this tic. Zero returns everything the node
+  // still has buffered, which is a fraction of a second.
+  uint64 after_tic = 1;
+}
+
+message QueryFramesResponse {
+  uint32 width = 1;
+  uint32 height = 2;
+
+  // Oldest first, and contiguous: the node buffers whole blocks.
+  repeated Frame frames = 3
+      [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+}

@@ -150,6 +150,25 @@ distclean: clean
 	rm -rf vendor/
 
 ###############################################################################
+###                                  DOOM                                   ###
+###############################################################################
+
+# Boots a single validator chain that runs DOOM. See x/doom/README.md.
+doom-start:
+	./x/doom/scripts/start.sh
+
+# Serves the browser client against that chain.
+doom-web:
+	$(BUILDDIR)/gaiad doom web --home $(HOME)/.gaia-doom --keyring-backend test
+
+# Rebuilds the embedded wasm. Only needed after touching the C, and it needs
+# wasi-sdk: `make -C x/doom/wasmbuild toolchain`.
+doom-wasm:
+	$(MAKE) -C x/doom/wasmbuild
+
+.PHONY: doom-start doom-web doom-wasm
+
+###############################################################################
 ###                              Version Bump                               ###
 ###############################################################################
 

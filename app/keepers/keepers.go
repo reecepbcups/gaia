@@ -85,6 +85,8 @@ import (
 
 	"github.com/cosmos/gaia/v29/ante"
 	gaiaparams "github.com/cosmos/gaia/v29/app/params"
+	doomkeeper "github.com/cosmos/gaia/v29/x/doom/keeper"
+	doomtypes "github.com/cosmos/gaia/v29/x/doom/types"
 	liquidkeeper "github.com/cosmos/gaia/v29/x/liquid/keeper"
 	liquidtypes "github.com/cosmos/gaia/v29/x/liquid/types"
 )
@@ -103,6 +105,7 @@ type AppKeepers struct {
 	MintKeeper         mintkeeper.Keeper
 	DistrKeeper        distrkeeper.Keeper
 	LiquidKeeper       *liquidkeeper.Keeper
+	DoomKeeper         *doomkeeper.Keeper
 	GovKeeper          *govkeeper.Keeper
 	UpgradeKeeper      *upgradekeeper.Keeper
 	WasmKeeper         wasmkeeper.Keeper
@@ -250,6 +253,15 @@ func NewAppKeeper(
 		appKeepers.StakingKeeper,
 		appKeepers.DistrKeeper,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+	)
+
+	// The wad is node-local config; a chain that is not running DOOM leaves
+	// wad_hash empty in params and never touches it.
+	appKeepers.DoomKeeper = doomkeeper.NewKeeper(
+		appCodec,
+		runtime.NewKVStoreService(appKeepers.keys[doomtypes.StoreKey]),
+		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+		doomkeeper.LoadWAD(homePath, logger),
 	)
 
 	// register the staking hooks
