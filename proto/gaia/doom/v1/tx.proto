@@ -1,0 +1,60 @@
+syntax = "proto3";
+package gaia.doom.v1;
+
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+import "cosmos_proto/cosmos.proto";
+import "cosmos/msg/v1/msg.proto";
+import "gaia/doom/v1/doom.proto";
+
+option go_package = "github.com/cosmos/gaia/x/doom/types";
+
+// Msg defines the doom Msg service.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // Input sets the buttons held down for the tics run by the block it lands in.
+  rpc Input(MsgInput) returns (MsgInputResponse);
+
+  // UpdateParams updates the x/doom module parameters.
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+}
+
+// MsgInput holds down a set of buttons.
+//
+// One of these per tic is what playing the game looks like: a client sends
+// roughly 35 a second and the EndBlocker feeds the last one it saw to the
+// engine. A tic with no input is a released-keys tic, same as a dropped packet
+// in a vanilla netgame.
+message MsgInput {
+  option (cosmos.msg.v1.signer) = "player";
+  option (amino.name) = "gaia/doom/MsgInput";
+  option (gogoproto.equal) = false;
+
+  string player = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // Bit mask of Button values.
+  uint32 buttons = 2;
+}
+
+message MsgInputResponse {
+  // Tic this input is expected to land on.
+  uint64 tic = 1;
+}
+
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "gaia/doom/MsgUpdateParams";
+
+  // authority is the address that controls the module (defaults to x/gov unless
+  // overwritten).
+  string authority = 1 [ (cosmos_proto.scalar) = "cosmos.AddressString" ];
+
+  // params defines the x/doom parameters to update.
+  //
+  // NOTE: All parameters must be supplied.
+  Params params = 2
+      [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+}
+
+message MsgUpdateParamsResponse {}

@@ -1,0 +1,19 @@
+syntax = "proto3";
+package gaia.doom.v1;
+
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+import "gaia/doom/v1/doom.proto";
+
+option go_package = "github.com/cosmos/gaia/x/doom/types";
+
+// GenesisState defines the x/doom genesis state.
+message GenesisState {
+  Params params = 1
+      [ (gogoproto.nullable) = false, (amino.dont_omitempty) = true ];
+
+  // Input log to replay on start, ordered from tic 0. Normally empty: a fresh
+  // chain boots the engine and plays the attract loop until somebody sends
+  // input.
+  repeated uint32 inputs = 2;
+}
