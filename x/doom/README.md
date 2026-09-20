@@ -19,6 +19,11 @@ So the chain stores the input log, and the game is a materialized view of it. An
 rebuild the whole thing by replaying from tic 0, and each block commits a sha256 of the engine's
 memory so a divergent replay shows up as an apphash mismatch instead of a silent fork.
 
+**Blocks are the game clock.** Nothing else advances it. A block runs `tics_per_block` tics in
+its `EndBlocker`, so with the default of 2 the game is at tic 2N when the chain is at height N.
+If the chain stalls, DOOM freezes mid-frame; if blocks speed up, so does the game. There is no
+wall clock anywhere inside the sandbox, which is exactly why the replay comes out identical.
+
 ## How it's put together
 
 ```text
@@ -52,19 +57,26 @@ That wipes `~/.gaia-doom`, fetches the shareware WAD, builds a single validator 
 make doom-web
 ```
 
-and open http://127.0.0.1:8666. Click the screen and play. Arrows move and turn, `A`/`D` strafe,
-`Ctrl` fires, `Space` opens doors, `Esc` is the menu, `1`-`7` pick weapons.
+Click the screen and play. Arrows move and turn, `A`/`D` strafe, `Ctrl` fires, `Space` opens
+doors, `Esc` is the menu, `1`-`7` pick weapons.
 
-The counter in the corner is real: that's how many transactions you've signed.
+and open http://127.0.0.1:8666.
+
+The page is three things at once: the screen, a feed of the transactions you're signing, and a
+feed of the state commitments coming back. Click any transaction hash and the node looks it up by
+hash and hands back the decoded `MsgInput`, block height, gas and fee, which is the part that
+makes it obvious none of this is a local emulator.
 
 ### Speed
 
-DOOM wants 35 tics a second. Gaia commits a block about every 57ms on a laptop, so the start
-script sets `tics_per_block = 2`, which lands at roughly 35 tics a second. If your hardware makes
-faster blocks, drop it to 1 and shorten `timeout_commit`.
+DOOM wants 35 tics a second. Gaia commits a block about every 66ms on a laptop, so the start
+script sets `tics_per_block = 2`, which lands around 30. If your hardware makes faster blocks,
+drop it to 1 and shorten `timeout_commit`.
 
 The doom EndBlocker itself is not the bottleneck. A tic costs about 1.5ms and hashing the engine's
-7MB of memory a few more; an empty gaia block costs about the same with or without it.
+7MB of memory a few more; an empty gaia block costs about the same with or without it. The chain
+does need the transaction indexer on (`indexer = "kv"`) for the clickable hashes, which is worth
+about 9ms a block.
 
 ## Rebuilding the wasm
 

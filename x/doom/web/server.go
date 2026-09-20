@@ -17,11 +17,13 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/crypto"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
 
 	"github.com/cosmos/gaia/v29/x/doom/engine"
 	"github.com/cosmos/gaia/v29/x/doom/types"
@@ -75,6 +77,7 @@ func Serve(ctx context.Context, cfg Config) error {
 	mux.HandleFunc("/api/account", s.handleAccount)
 	mux.HandleFunc("/api/frames", s.handleFrames)
 	mux.HandleFunc("/api/tx", s.handleTx)
+	mux.HandleFunc("/api/tx/lookup", s.handleTxLookup)
 
 	srv := &http.Server{
 		Addr:              cfg.Listen,
@@ -175,11 +178,14 @@ func (s *server) handleAccount(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]uint64{"accountNumber": num, "sequence": seq})
 }
 
-// Each streamed frame is a fixed prefix (the tic it was rendered at and the
-// state commitment for that tic) followed by the palette and the pixels.
+// Each streamed frame is a fixed prefix followed by the palette and the pixels.
+// The prefix is the committed tic, its state commitment, and the block that
+// wrote them: everything the page needs to show that the picture came from
+// consensus and not from here.
 const (
 	stateHashSize   = 32
-	frameHeaderSize = 8 + stateHashSize + engine.PaletteSize
+	framePrefixSize = 8 + stateHashSize + 8 + 8
+	frameHeaderSize = framePrefixSize + engine.PaletteSize
 )
 
 // handleFrames streams the screen as length-prefixed binary chunks. Binary over
@@ -223,14 +229,17 @@ func (s *server) handleFrames(w http.ResponseWriter, r *http.Request) {
 		}
 		lastTic, seen = frame.Tic, true
 
-		binary.LittleEndian.PutUint64(buf[4:12], frame.Tic)
-		hash := buf[12 : 12+stateHashSize]
-		for i := range hash {
-			hash[i] = 0
+		prefix := buf[4 : 4+framePrefixSize]
+		for i := range prefix {
+			prefix[i] = 0
 		}
-		copy(hash, frame.StateHash)
-		copy(buf[12+stateHashSize:12+stateHashSize+engine.PaletteSize], frame.Palette)
-		copy(buf[12+stateHashSize+engine.PaletteSize:], frame.Pixels)
+		binary.LittleEndian.PutUint64(prefix[0:8], frame.Tic)
+		copy(prefix[8:8+stateHashSize], frame.StateHash)
+		binary.LittleEndian.PutUint64(prefix[40:48], uint64(frame.BlockHeight))
+		binary.LittleEndian.PutUint64(prefix[48:56], uint64(frame.Time.UnixMilli()))
+
+		copy(buf[4+framePrefixSize:4+frameHeaderSize], frame.Palette)
+		copy(buf[4+frameHeaderSize:], frame.Pixels)
 
 		if _, err := w.Write(buf); err != nil {
 			return
@@ -281,6 +290,36 @@ func (s *server) handleTx(w http.ResponseWriter, r *http.Request) {
 		"rawLog": res.RawLog,
 		"txhash": res.TxHash,
 	})
+}
+
+// handleTxLookup reads a transaction back off the chain by hash. The page uses
+// it to show that the bytes it signed really did land in a block, decoded by
+// the node rather than by the page that made them.
+func (s *server) handleTxLookup(w http.ResponseWriter, r *http.Request) {
+	hash := strings.TrimSpace(r.URL.Query().Get("hash"))
+	if hash == "" {
+		httpError(w, http.StatusBadRequest, fmt.Errorf("missing hash"))
+		return
+	}
+
+	res, err := authtx.QueryTx(s.cfg.ClientCtx, hash)
+	if err != nil {
+		// A transaction that has not been indexed yet is the common case here,
+		// not a failure: the page polls until the block lands.
+		httpError(w, http.StatusNotFound, err)
+		return
+	}
+
+	// Marshal through the codec so the messages inside come out decoded rather
+	// than as base64 Any blobs.
+	out, err := s.cfg.ClientCtx.Codec.MarshalJSON(res)
+	if err != nil {
+		httpError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(out)
 }
 
 func writeJSON(w http.ResponseWriter, v any) {

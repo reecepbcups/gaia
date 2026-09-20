@@ -2,7 +2,8 @@
 //
 // Frames come down a chunked HTTP stream; input goes back up as signed
 // transactions, one per tic. Nothing here talks to a game server, because there
-// isn't one: the screen is whatever the chain's EndBlocker last rendered.
+// isn't one: the screen is whatever the chain's EndBlocker last rendered, and
+// every hash on the page can be read back off the chain.
 
 import { signInput, getPublicKey, hexToBytes, concat } from './tx.js';
 
@@ -49,11 +50,19 @@ function toHex(bytes, chars) {
   return chars ? s.slice(0, chars) : s;
 }
 
+function clock(ms) {
+  const d = new Date(ms);
+  const p = (n, w = 2) => String(n).padStart(w, '0');
+  return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}.${p(d.getMilliseconds(), 3)}`;
+}
+
 const el = (id) => document.getElementById(id);
 const screen = el('screen');
 const ctx = screen.getContext('2d');
 const image = ctx.createImageData(320, 200);
 const onlyChanges = el('onlyChanges');
+const detail = el('detail');
+const detailNote = el('detailnote');
 
 let session = null;
 let privKey = null;
@@ -89,6 +98,7 @@ function makeFeed(node) {
     for (const entry of pending) {
       const row = document.createElement('div');
       row.className = entry.bad ? 'row bad' : 'row';
+      if (entry.hash) row.dataset.hash = entry.hash;
       for (const [className, text] of entry.cells) {
         const cell = document.createElement('span');
         cell.className = className;
@@ -113,8 +123,82 @@ function makeFeed(node) {
   };
 }
 
-const pushTx = makeFeed(el('txfeed'));
+const txfeed = el('txfeed');
+const pushTx = makeFeed(txfeed);
 const pushState = makeFeed(el('statefeed'));
+
+//
+// transaction detail
+//
+// The page signed these bytes, so decoding them here would prove nothing. Ask
+// the node to find the transaction by hash and hand back what it stored.
+//
+
+function row(label, value) {
+  const div = document.createElement('div');
+  div.className = 'kv';
+  const k = document.createElement('span');
+  k.textContent = label;
+  const v = document.createElement('span');
+  v.textContent = value;
+  div.append(k, v);
+  return div;
+}
+
+function renderTx(hash, res) {
+  detail.textContent = '';
+  detailNote.textContent = `${res.height ? 'in block ' + res.height : 'pending'}`;
+
+  const ok = Number(res.code || 0) === 0;
+  detail.append(
+    row('hash', hash),
+    row('height', res.height ?? '-'),
+    row('result', ok ? 'success' : `failed (code ${res.code})`),
+    row('gas', `${res.gas_used ?? '?'} used of ${res.gas_wanted ?? '?'}`),
+  );
+
+  if (res.timestamp) detail.append(row('timestamp', res.timestamp));
+  if (!ok && res.raw_log) detail.append(row('log', res.raw_log));
+
+  // The interesting part: the decoded messages, straight out of the node.
+  const messages = res.tx?.body?.messages ?? [];
+  const pre = document.createElement('pre');
+  pre.textContent = JSON.stringify(messages.length === 1 ? messages[0] : messages, null, 2);
+  detail.appendChild(pre);
+}
+
+let selected = null;
+
+async function showTx(hash, rowNode) {
+  if (selected) selected.classList.remove('sel');
+  selected = rowNode;
+  if (selected) selected.classList.add('sel');
+
+  detail.textContent = '';
+  detailNote.textContent = 'looking up';
+  detail.append(row('hash', hash), row('status', 'querying the node...'));
+
+  // A transaction is only indexed once its block commits, so a miss right after
+  // broadcasting is normal. Give it a few blocks.
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const res = await fetch(`./api/tx/lookup?hash=${hash}`);
+    if (res.ok) {
+      renderTx(hash, await res.json());
+      return;
+    }
+    if (selected !== rowNode) return;
+    await new Promise((r) => setTimeout(r, 250));
+  }
+
+  detail.textContent = '';
+  detailNote.textContent = 'not found';
+  detail.append(row('hash', hash), row('status', 'not indexed, it may have been dropped'));
+}
+
+txfeed.addEventListener('click', (e) => {
+  const rowNode = e.target.closest('.row');
+  if (rowNode?.dataset.hash) showTx(rowNode.dataset.hash, rowNode);
+});
 
 //
 // session
@@ -129,8 +213,10 @@ async function connect() {
   pubKey = getPublicKey(privKey, true);
   sequence = BigInt(session.sequence);
 
-  el('who').textContent = `${session.address} on ${session.chainId}`;
+  el('chain').textContent = session.chainId;
+  el('who').textContent = session.address;
   el('seq').textContent = sequence;
+  el('tpb').textContent = session.ticsPerBlock;
 }
 
 async function resyncSequence() {
@@ -173,10 +259,11 @@ async function sendInput(buttons) {
   if (rejected || buttons !== lastLogged || !onlyChanges.checked) {
     pushTx({
       bad: rejected,
+      hash: out.txhash,
       cells: [
         ['num', seq.toString()],
         [buttons === 0 ? 'keys idle' : 'keys', describe(buttons)],
-        ['hash', out.txhash ? out.txhash.slice(0, 16).toLowerCase() : '-'],
+        ['hash', out.txhash ? out.txhash.toLowerCase() : '-'],
       ],
     });
   }
@@ -265,11 +352,13 @@ async function frameLoop() {
   const HASH = 32;
   const PALETTE = 1024;
   const PIXELS = 320 * 200;
-  const PAYLOAD = 8 + HASH + PALETTE + PIXELS;
+  const PREFIX = 8 + HASH + 8 + 8;
+  const PAYLOAD = PREFIX + PALETTE + PIXELS;
 
   let frames = 0;
   let windowStart = performance.now();
-  let lastHash = '';
+  let lastHeight = 0n;
+  let lastBlockMs = 0;
 
   for (;;) {
     try {
@@ -285,22 +374,34 @@ async function frameLoop() {
         buf = concat([buf, value]);
 
         while (buf.length >= 4) {
-          const len = new DataView(buf.buffer, buf.byteOffset, 4).getUint32(0, true);
+          const head = new DataView(buf.buffer, buf.byteOffset, Math.min(buf.length, 4 + PREFIX));
+          const len = head.getUint32(0, true);
           if (len !== PAYLOAD || buf.length < 4 + len) break;
 
-          const tic = new DataView(buf.buffer, buf.byteOffset + 4, 8).getBigUint64(0, true);
+          const tic = head.getBigUint64(4, true);
+          const height = head.getBigUint64(44, true);
+          const timeMs = Number(head.getBigUint64(52, true));
           const hash = buf.subarray(12, 12 + HASH);
-          const palette = buf.subarray(12 + HASH, 12 + HASH + PALETTE);
-          const pixels = buf.subarray(12 + HASH + PALETTE, 4 + len);
+          const palette = buf.subarray(4 + PREFIX, 4 + PREFIX + PALETTE);
+          const pixels = buf.subarray(4 + PREFIX + PALETTE, 4 + len);
 
           draw(palette, pixels);
           el('tic').textContent = tic;
+          el('height').textContent = height;
 
           // One commitment per block, and a block is several frames.
-          const hex = toHex(hash, 40);
-          if (hex !== lastHash) {
-            lastHash = hex;
-            pushState({ cells: [['num', tic.toString()], ['hash', hex]] });
+          if (height !== lastHeight) {
+            if (lastBlockMs) el('blocktime').textContent = `${timeMs - lastBlockMs}ms`;
+            lastBlockMs = timeMs;
+            lastHeight = height;
+            pushState({
+              cells: [
+                ['num', height.toString()],
+                ['num', `tic ${tic}`],
+                ['when', clock(timeMs)],
+                ['hash', toHex(hash)],
+              ],
+            });
           }
 
           frames++;

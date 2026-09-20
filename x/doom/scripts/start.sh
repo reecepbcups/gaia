@@ -101,10 +101,9 @@ for key, value in [
     ('timeout_precommit_delta', '40ms'),
     ('timeout_commit', '28ms'),
     ('create_empty_blocks_interval', '0s'),
-    # Nothing here queries by transaction hash, and dropping the indexer and the
-    # stored ABCI responses is most of the difference between a 90ms block and a
-    # 60ms one.
-    ('indexer', 'null'),
+    # The browser client looks its own transactions back up by hash to show them
+    # decoded, so the transaction index has to stay on.
+    ('indexer', 'kv'),
 ]:
     s = re.sub(rf'(?m)^{key} = ".*"$', f'{key} = "{value}"', s)
 

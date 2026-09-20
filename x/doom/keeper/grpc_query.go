@@ -3,6 +3,8 @@ package keeper
 import (
 	"context"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -60,12 +62,18 @@ func (q queryServer) Frame(ctx context.Context, _ *types.QueryFrameRequest) (*ty
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
+	// A query runs against the last committed block, so its header is the block
+	// that wrote the commitment above.
+	header := sdk.UnwrapSDKContext(ctx).BlockHeader()
+
 	return &types.QueryFrameResponse{
-		Tic:       gs.Tic,
-		Width:     engine.ScreenWidth,
-		Height:    engine.ScreenHeight,
-		Pixels:    pixels,
-		Palette:   palette,
-		StateHash: gs.StateHash,
+		Tic:         gs.Tic,
+		Width:       engine.ScreenWidth,
+		Height:      engine.ScreenHeight,
+		Pixels:      pixels,
+		Palette:     palette,
+		StateHash:   gs.StateHash,
+		BlockHeight: header.Height,
+		Time:        header.Time,
 	}, nil
 }
