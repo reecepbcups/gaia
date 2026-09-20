@@ -57,6 +57,7 @@ import (
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 
 	gaia "github.com/cosmos/gaia/v29/app"
+	doomcli "github.com/cosmos/gaia/v29/x/doom/client/cli"
 )
 
 // NewRootCmd creates a new root command for simd. It is called once in the
@@ -210,6 +211,7 @@ func initRootCmd(rootCmd *cobra.Command,
 		confixcmd.ConfigCommand(),
 		pruning.Cmd(ac.newApp, gaia.DefaultNodeHome),
 		snapshot.Cmd(ac.newApp),
+		doomcli.NewRootCmd(),
 	)
 
 	server.AddCommands(rootCmd, gaia.DefaultNodeHome, ac.newApp, ac.appExport, addModuleInitFlags)
